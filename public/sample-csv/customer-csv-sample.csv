@@ -1,0 +1,1 @@
+invoice_no,customer_name,from(us_warehouse),to(customer_location),unit,booking_date,collection_date,delivery_date,remarks,type,total_no_of_box_pallet,tracking_no,tracking_link

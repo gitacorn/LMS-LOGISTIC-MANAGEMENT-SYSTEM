@@ -1,0 +1,1 @@
+workflow_id,shipment_id,ref_id,account,packing_warehouse,from(us_warehouse),to(amazon_location),to_country(delivery),sku,unit,shipment_currency,shipment_value,weight,boxes_pallets,no_of_boxes_pallets,booking_date,collection_date,delivery_date,tracking_no,tracking_link,amazon_appointment_date ,amazon_appointment_id

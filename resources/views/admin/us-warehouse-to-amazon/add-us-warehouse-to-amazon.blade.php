@@ -1,0 +1,2939 @@
+
+@extends('includes/header')
+
+@section('pageTitle', $pageTitle )
+
+@section('content')
+@include('admin/csv-import-model')	
+
+<main class="page-height bg-light-color">
+    <div class="breadcrumb-wrapper d-md-flex border-navabr align-items-center">
+        <h1 class="h3 mb-lg-0 mr-3 header-title" id="pageTitle">{{ $pageTitle }}</h1>
+    </div>
+
+    <section class="inner-wrapper-common-sections main-listing-section">
+        <div class="container-fluid">
+            <div class="card document-card mb-3">
+                <ul class="document-items">
+                    <li class="document-list"><a href="#details" class="document-text">{{ trans("messages.details") }}</a></li>
+                    <li class="document-list"><a href="#documents" class="document-text">{{ trans("messages.documents") }}</a></li>
+                    <li class="document-list"><a href="#transporter" class="document-text">{{ trans("messages.transporter-invoice") }}</a></li>
+                    <li class="document-list"><a href="#status" class="document-text">{{ trans("messages.status") }}</a></li>
+                     <?php if( isset($recordInfo) && ( $recordInfo->i_id > 0 ) ) { ?>
+						<li class="document-text ml-auto logistic-master-no"><?php echo (!empty($recordInfo->v_us_warehouse_to_amazon_record_no) ? $recordInfo->v_us_warehouse_to_amazon_record_no : '')?></li>
+					<?php }?>
+                </ul>
+            </div>
+            <div class="card mb-3 good-in-buyer-class" id="details">
+                <h3 class="title-goods"><i class="fas fa-level-up-alt list-icon mr-2"></i>{{ trans("messages.details") }}</h3>
+                {!! Form::open(array( 'id '=> 'add-us-warehouse-to-amazon-form' , 'method' => 'post' , 'files' => true , 'url' => 'us-warehouse-to-amazon/add')) !!}
+                @if (count($errors) > 0)
+					    <div class="error">
+					        <ul>
+					            @foreach ($errors->all() as $error)
+					                <li>{{ $error }}</li>
+					            @endforeach
+					        </ul>
+					    </div>
+					@endif
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-xl-2 col-md-4 col-sm-6 way-transport-bookby-logistic-partner-hide-show-div" <?php echo (isset($recordInfo) && !empty($recordInfo->e_to_location) && $recordInfo->e_to_location == config('constants.AMAZON_FBA_SHEET') ? 'style=display:none' : '') ?>>
+                                <div class="form-group">
+                                    <label class="control-label" for="way_of_transport">{{ trans("messages.way-of-transport") }}<span class="text-danger">*</span></label>
+                                    <select name="way_of_transport" class="form-control" {{ $disableForm }}>
+                                        <option value="">{{ trans("messages.select") }}</option>
+                                        <?php 
+                                        if(!empty($wayOfTransportDetails)){
+                                        	foreach ($wayOfTransportDetails as $key => $wayOfTransportDetail){
+                                        		$selected = '';
+                                        		if(isset($recordInfo) && ($recordInfo->e_transport_way == $key ) ){
+                                        			$selected = "selected='selected'";
+                                        		}
+                                        		?>
+                                        		<option value="{{ $key }}" {{ $selected }}>{{ $wayOfTransportDetail }}</option>
+                                        		<?php 
+                                        	}
+                                        }
+                                        ?>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 col-md-6 col-sm-6">
+                                <div class="form-group">
+                                    <label class="control-label" for="from_Warehouse">{{ trans("messages.from") }}<span class="text-danger">*</span></label>
+                                    <select name="from" class="form-control" {{ $disableForm }}>
+                                        <option value="">{{ trans("messages.select") }}</option>
+                                         <?php 
+                                         if(!empty($amazonFromWarehouseDetails)){
+                                         	foreach ($amazonFromWarehouseDetails as $amazonFromWarehouseDetail){
+                                            	$amazonFromWarehouseEncodeId =  Wild_tiger::encode($amazonFromWarehouseDetail->i_id);
+                                            	$selected = '';
+                                            	if(isset($recordInfo) && ($recordInfo->i_from_warehouse_id == $amazonFromWarehouseDetail->i_id ) ){
+                                            		$selected = "selected='selected'";
+                                            	}
+                                            	?>
+                                            	<option value="{{ $amazonFromWarehouseEncodeId }}" {{ $selected }}>{{ (!empty($amazonFromWarehouseDetail->v_warehouse_name) ? $amazonFromWarehouseDetail->v_warehouse_name . (!empty($amazonFromWarehouseDetail->v_warehouse_code) ? ' ('.$amazonFromWarehouseDetail->v_warehouse_code.')' : '' ) : '') }}</option>
+                                            	<?php 	
+                                         	}
+                                        }?>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 col-md-6 col-sm-6">
+                                <div class="form-group">
+                                    <label class="control-label" for="to">{{ trans("messages.to") }}<span class="text-danger">*</span></label>
+                                    <select name="to" class="form-control" onchange="shipmentRecordShow(this);hideShowFieldsBasedOnTo(this)" {{ ( (isset($recordInfo) && (!empty($recordInfo->i_id)) ) ? 'disabled' : '' ) }} {{ $disableForm }}>
+                                        <option value="">{{ trans("messages.select") }}</option>
+                                         <?php 
+                                        if(!empty($wayToWarehouseInfo)){
+                                        	foreach ($wayToWarehouseInfo as $key => $wayToWarehouse){
+                                        		$selected = '';
+                                        		if(isset($recordInfo) && ($recordInfo->e_to_location == $key ) ){
+                                        			$selected = "selected='selected'";
+                                        		}
+                                        		?>
+                                        		<option value="{{ $key }}" {{ $selected }}>{{ $wayToWarehouse }}</option>
+                                        		<?php 
+                                        	}
+                                        }
+                                        ?>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-xl-3 col-md-4 col-sm-6 way-transport-bookby-logistic-partner-hide-show-div" <?php echo (isset($recordInfo) && !empty($recordInfo->e_to_location) && $recordInfo->e_to_location == config('constants.AMAZON_FBA_SHEET') ? 'style=display:none' : '') ?>>
+                                <div class="form-group">
+                                    <label for="book_by" class="control-label">{{ trans("messages.book-by") }}<span class="text-danger">*</span></label>
+                                    <select name="book_by" class="form-control select2" {{ $disableForm }}>
+                                        <option value="">{{ trans("messages.select") }}</option>
+                                        <?php 
+                                        if(!empty($userRecordDetails)){
+                                        	foreach ($userRecordDetails as $userRecordDetail){
+                                        		$encodevUserId  = Wild_tiger::encode($userRecordDetail->i_id);
+                                        		$selected = '';
+                                        		if(isset($recordInfo) && ($recordInfo->i_book_by_employee_id == $userRecordDetail->i_id ) ){
+                                        			$selected = "selected='selected'";
+                                        		}
+                                        		?>
+                                        		<option value="{{ $encodevUserId }}" {{ $selected }}>{{  (!empty($userRecordDetail->v_name) ? $userRecordDetail->v_name . (!empty($userRecordDetail->v_department) ?  ' ('. $userRecordDetail->v_department . ')' : '' ) : '' ) }}</option>
+                                        		<?php 
+                                        	}
+                                        } 
+                                        ?>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-xl-3 col-md-4 col-sm-6 way-transport-bookby-logistic-partner-hide-show-div" <?php echo (isset($recordInfo) && !empty($recordInfo->e_to_location) && $recordInfo->e_to_location == config('constants.AMAZON_FBA_SHEET') ? 'style=display:none' : '') ?>>
+                                <div class="form-group">
+                                    <label class="control-label" for="logistic_partner">{{ trans("messages.logistic-partner") }}<span class="text-danger">*</span></label>
+                                    <select name="logistic_partner" class="form-control select2 " {{ $disableForm }}>
+                                        <option value="">{{ trans("messages.select") }}</option>
+                                        <?php 
+                                        if(!empty($logisticPartnerRecordDetails)){
+                                        	foreach ($logisticPartnerRecordDetails as $logisticPartnerRecordDetail){
+                                        		$encodeLogisticPartnerDetailId = Wild_tiger::encode($logisticPartnerRecordDetail->i_id);
+                                        		$selected = '';
+                                        		if(isset($recordInfo) && ($recordInfo->i_logistic_partner_detail_id == $logisticPartnerRecordDetail->i_id ) ){
+                                        			$selected = "selected='selected'";
+                                        		}
+                                        		?>
+                                        		<option value="{{ $encodeLogisticPartnerDetailId }}" {{ $selected }}>{{  (!empty($logisticPartnerRecordDetail->logisticPartnerMaster->v_logistic_partner_name) ? $logisticPartnerRecordDetail->logisticPartnerMaster->v_logistic_partner_name . (!empty($logisticPartnerRecordDetail->v_logistic_partner_code) ?  ' - '. $logisticPartnerRecordDetail->v_logistic_partner_code : '' ) : '' ) }}</option>
+                                        		<?php 
+                                        	}
+                                        }
+                                        ?>
+                                    </select>
+                                </div>
+                            </div>
+							<div class="col-xl-3 col-md-4 col-sm-6">
+                                <div class="form-group">
+                                    <label class="control-label" for="personal_ref">Personal Ref</label>
+                                    <input type="text" name="personal_ref" {{ $disableForm }} class="form-control" placeholder="Personal Ref" value="{{ old('personal_ref', (isset($recordInfo) && !empty($recordInfo->v_personal_ref) ? $recordInfo->v_personal_ref : '')) }}">
+                                </div>
+                            </div>
+                            <?php /*?>
+                            <div class="col-xl-2 col-md-4 col-sm-6">
+                                <div class="form-group">
+                                    <label class="control-label" for="booking_date">{{ trans("messages.booking-date") }}<span class="text-danger">*</span></label>
+                                    <input type="text" {{ $disableForm }} name="booking_date" class="form-control date-format" placeholder="{{ trans('messages.booking-date') }}" value="{{ old('booking_date', ( (isset($recordInfo) && (!empty($recordInfo->dt_booking_date))) ? clientDate( $recordInfo->dt_booking_date) : '' ))}}">
+                                </div>
+                            </div>
+                            <div class="col-xl-2 col-md-4 col-sm-6">
+                                <div class="form-group">
+                                    <label class="control-label" for="collection_date">{{ trans("messages.collection-date") }} </label>
+                                    <input type="text" {{ $disableForm }} name="collection_date" class="form-control date-format" placeholder="{{ trans('messages.collection-date') }}" value="{{ old('collection_date', ( (isset($recordInfo) && (!empty($recordInfo->dt_collection_date))) ? clientDate( $recordInfo->dt_collection_date) : '' ))}}">
+                                </div>
+                            </div>
+                            
+                            <div class="col-xl-2 col-md-4 col-sm-6">
+                                <div class="form-group">
+                                    <label class="control-label" for="delivery_date">{{ trans("messages.delivery-date") }} </label>
+                                    <input type="text" {{ $disableForm }} name="delivery_date" class="form-control date-format" placeholder="{{ trans('messages.delivery-date') }}" value="{{ old('delivery_date', ( (isset($recordInfo) && (!empty($recordInfo->dt_delivery_date))) ? clientDate( $recordInfo->dt_delivery_date) : '' ))}}">
+                                </div>
+                            </div>
+                            <div class="col-xl-2 col-md-4 col-sm-6">
+                                <div class="form-group">
+                                    <label class="control-label" for="remarks">{{ trans("messages.remarks") }}</label>
+                                    <textarea name="remarks" {{ $disableForm }} class="form-control date-format" rows="1" placeholder="{{ trans('messages.remarks') }}">{{( (isset($recordInfo) && (!empty($recordInfo->v_remarks))) ? ( $recordInfo->v_remarks) : '' )}}</textarea>
+                                </div>
+                            </div>
+							<?php */?>
+                            <div class="col-md-12 shipment-details-amazon-record" {{  ( isset($recordInfo) && ($recordInfo->e_to_location == config("constants.AMAZON_FBA_SHEET")) ? "" : "style=display:none") }}>
+                                <div class="form-group pb-3 pt-3">
+                                    <div class="card shadow-none border">
+                                        <div class="card-header">
+                                            <span class="partner-tilte">
+                                                {{ trans("messages.shipment-details-amazon") }}
+                                            </span>
+                                            <?php if(!isset($recordInfo)) { ?>
+											<a href="javascript:void(0)"  class="btn btn-success border-0 float-right" onclick="openCSVImportModel(this)">{{ trans('messages.import') }}</a>
+											<?php } ?>
+                                        </div>
+                                        <div class="card-body logistic-partner">
+                                            <div class="table-responsive">
+                                                <table class="table table-hover table-bordered table-sm pb-4">
+                                                    <thead>
+                                                        <tr class="text-center">
+                                                            <th style="max-width:70px;min-width:70px;">{{ trans("messages.sr-no") }}</th>
+                                                            <th style="max-width:160px;min-width:160px;">{{ trans("messages.shipment-id") }} <span class="text-danger">*</span></th>
+                                                            <th style="max-width:160px;min-width:160px;">{{ trans("messages.ref-id") }} <span class="text-danger">*</span></th>
+                                                            <th style="max-width:250px;min-width:200px;">{{ trans("messages.account") }} <span class="text-danger">*</span></th>
+                                                            <th style="max-width:250px;min-width:200px;">{{ trans("messages.from-us-warehouse") }} <span class="text-danger">*</span></th>
+                                                            <th style="max-width:250px;min-width:200px;">{{ trans("messages.to-amazon-location") }} <span class="text-danger">*</span></th>
+                                                            <th style="width:200px;min-width:200px;">{{ trans("messages.product") }} <span class="text-danger">*</span></th>
+                                                            <th style="width:110px;min-width:110px;">{{ trans("messages.sku") }} <span class="text-danger">*</span></th>
+                                                            <th style="width:110px;min-width:110px;">{{ trans("messages.unit") }} <span class="text-danger">*</span></th>
+                                                            <th style="width:110px;min-width:110px;">{{ trans("messages.price") }}</th>
+                                                            <th style="width:160px;min-width:160px;">{{ trans("messages.booking-date") }}</th>
+                                                            <th style="width:160px;min-width:160px;">{{ trans("messages.collection-date") }}</th>
+                                                            <th style="width:160px;min-width:160px;">{{ trans("messages.delivery-date") }}</th>
+                                                            <th style="width:160px;min-width:160px;">{{ trans("messages.remarks") }}</th>
+                                                            <th style="max-width:160px;min-width:160px;">{{ trans("messages.type") }}<span class="text-danger">*</span></th>
+                                                            <th style="max-width:160px;min-width:160px;">{{ trans("messages.total-no-of-pallets") }}<span class="text-danger">*</span></th>
+                                                            <th style="width:160px;min-width:160px;">{{ trans("messages.tracking-no") }}<span class="text-danger">*</span></th>
+                                                            <th style="width:160px;min-width:160px;">{{ trans("messages.tracking-link") }}</th>
+                                                            <th style="max-width:160px;min-width:160px;">{{ trans("messages.amazon-appointment-date") }}</th>
+                                                            <th style="max-width:160px;min-width:160px;">{{ trans("messages.amazon-appointment-id") }}</th>
+                                                           <th style="width:70px;min-width:70px;">{{ trans("messages.action") }}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody class="shipment-details-amazon-tbody">
+                                                    	<?php 
+                                                    	if(!empty($recordInfo->usWarehouseToAmazonDetails) && count($recordInfo->usWarehouseToAmazonDetails) > 0){
+                                                    		foreach ($recordInfo->usWarehouseToAmazonDetails as $countKey => $usWarehouseToAmazonDetail){
+                                                    			$usWarehouseToAmazonDetailId = (!empty($usWarehouseToAmazonDetail->i_id) ? $usWarehouseToAmazonDetail->i_id :'');
+                                                    			$columIndex  = ( $countKey +  1 );
+                                                    			?>
+                                                    			<tr>
+		                                                            <td class="table-index text-center" style="width:70px;min-width:70px;">{{ $columIndex }}</td>
+		                                                            <td class="text-left"><input type="text" class="form-control amazon-shipment-id-status" {{ $disableForm }} data-record-type='{{ config("constants.US_WAREHOUSE_TO_AMAZON") }}' data-shipment-id='{{ $usWarehouseToAmazonDetailId }}' onchange="checkUniqueShipmentId(this)" name="edit_shipment_id_{{ $usWarehouseToAmazonDetailId }}" value="{{(!empty($usWarehouseToAmazonDetail->v_shipment_id) ? $usWarehouseToAmazonDetail->v_shipment_id :'') }}"></td>
+		                                                            <td class="text-left"><input type="text" class="form-control ref-amazon-row" {{ $disableForm }} name="edit_ref_id_{{ $usWarehouseToAmazonDetailId }}" value="{{(!empty($usWarehouseToAmazonDetail->v_ref_id) ? $usWarehouseToAmazonDetail->v_ref_id :'') }}"></td>
+		                                                            <td class="text-left">
+		                                                                <select name="edit_account_{{ $usWarehouseToAmazonDetailId }}" class="form-control account-amazon-row select2" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                   	<?php 
+		                                                                   	if(!empty($companyMasterRecordDetails)){
+		                                                                   		foreach ($companyMasterRecordDetails as $companyMasterRecordDetail){
+		                                                                   			$encodeId =  Wild_tiger::encode($companyMasterRecordDetail->i_id);
+		                                                                   			$selected = '';
+		                                                                   			if( isset($usWarehouseToAmazonDetail->i_account_company_id) && ( $usWarehouseToAmazonDetail->i_account_company_id == $companyMasterRecordDetail->i_id ) ){
+		                                                                   				$selected = "selected='selected'";
+		                                                                   			}
+		                                                                   			?>
+		                                                                   			<option value='{{ $encodeId }}' {{ $selected }}>{{ (!empty($companyMasterRecordDetail->v_company_name) ? $companyMasterRecordDetail->v_company_name . (!empty($companyMasterRecordDetail->v_company_short_code) ? ' ('. $companyMasterRecordDetail->v_company_short_code . ')' : '' ) : '') }}</option>
+		                                                                   			<?php 
+		                                                                   		}
+		                                                                   	}
+		                                                                   	?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="edit_amazon_from_warehouse_{{ $usWarehouseToAmazonDetailId }}" class="form-control from-warehouse-amazon-row" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    <?php 
+		                                                                    if(!empty($amazonFromWarehouseDetails)){
+		                                                                    	foreach ($amazonFromWarehouseDetails as $amazonFromWarehouseDetail){
+		                                                                    		$amazonFromWarehouseEncodeId =  Wild_tiger::encode($amazonFromWarehouseDetail->i_id);
+		                                                                    		$selected = '';
+		                                                                    		if( isset($usWarehouseToAmazonDetail->i_amazon_from_warehouse_id) && ( $usWarehouseToAmazonDetail->i_amazon_from_warehouse_id == $amazonFromWarehouseDetail->i_id ) ){
+		                                                                    			$selected = "selected='selected'";
+		                                                                    		}
+		                                                                    		?>
+		                                                                    		<option value="{{ $amazonFromWarehouseEncodeId }}" {{ $selected }}>{{ (!empty($amazonFromWarehouseDetail->v_warehouse_name) ? $amazonFromWarehouseDetail->v_warehouse_name  . (!empty($amazonFromWarehouseDetail->v_warehouse_code) ? ' ('. $amazonFromWarehouseDetail->v_warehouse_code . ')' : '' ) : '') }}</option>
+		                                                                    	<?php 	
+		                                                                    	}
+		                                                                    }?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="edit_to_amazon_location_{{ $usWarehouseToAmazonDetailId }}" class="form-control to-location-amazon-row select2" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    <?php 
+		                                                                    if(!empty($locationMasterDetails)){
+		                                                                    	foreach ($locationMasterDetails as $locationMasterDetail){
+		                                                                    		$locationMasterDetailEncodeId =  Wild_tiger::encode($locationMasterDetail->i_id);
+		                                                                    		$selected = '';
+		                                                                    		if( isset($usWarehouseToAmazonDetail->i_to_amazon_location_id) && ( $usWarehouseToAmazonDetail->i_to_amazon_location_id == $locationMasterDetail->i_id ) ){
+		                                                                    			$selected = "selected='selected'";
+		                                                                    		}
+		                                                                    		?>
+		                                                                    		<option value="{{ $locationMasterDetailEncodeId }}" {{ $selected }}>{{ (!empty($locationMasterDetail->v_warehouse_name) ? $locationMasterDetail->v_warehouse_name . (!empty($locationMasterDetail->v_warehouse_code) ? ' ('. $locationMasterDetail->v_warehouse_code . ')' : '' ) : '') }}</option>
+		                                                                    	<?php 	
+		                                                                    	}
+		                                                                    }?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left"><input type="text" class="form-control product-amazon-row" name="edit_product_{{ $usWarehouseToAmazonDetailId }}" {{ $disableForm }} value="{{(!empty($usWarehouseToAmazonDetail->v_product) ? $usWarehouseToAmazonDetail->v_product : '') }}"></td>
+		                                                            <td class="text-left"><input type="text" class="form-control sku-amazon-row" {{ $disableForm }} name="edit_sku_{{ $usWarehouseToAmazonDetailId }}" value="{{(!empty($usWarehouseToAmazonDetail->v_sku) ? $usWarehouseToAmazonDetail->v_sku :'') }}"></td>
+		                                                            <td class="text-left"><input type="text" class="form-control unit-amazon-row"  {{ $disableForm }} name="edit_unit_{{ $usWarehouseToAmazonDetailId }}" value="{{(!empty($usWarehouseToAmazonDetail->v_units) ? $usWarehouseToAmazonDetail->v_units :'') }}"></td>
+		                                                            <td class="text-left"><input type="text" class="form-control  price-amazon-row" {{ $disableForm }} name="edit_price_{{ $usWarehouseToAmazonDetailId }}" onkeyup="onlyDecimal(this)" value="{{(!empty($usWarehouseToAmazonDetail->d_price) ? $usWarehouseToAmazonDetail->d_price :'') }}"></td>
+		                                                            <td class="text-left"><input type="text" {{ $disableForm }} name="edit_amazon_booking_date_{{ $usWarehouseToAmazonDetailId }}" class="form-control date-format" value="{{(!empty($usWarehouseToAmazonDetail->dt_booking_date) ? clientDate($usWarehouseToAmazonDetail->dt_booking_date) :'') }}"></td>
+																	<td class="text-left"><input type="text" {{ $disableForm }} name="edit_amazon_collection_date_{{ $usWarehouseToAmazonDetailId }}" class="form-control date-format" value="{{(!empty($usWarehouseToAmazonDetail->dt_collection_date) ? clientDate($usWarehouseToAmazonDetail->dt_collection_date) :'') }}"></td>
+																	<td class="text-left"><input type="text" {{ $disableForm }} name="edit_amazon_delivery_date_{{ $usWarehouseToAmazonDetailId }}" class="form-control date-format" value="{{(!empty($usWarehouseToAmazonDetail->dt_delivery_date) ? clientDate($usWarehouseToAmazonDetail->dt_delivery_date) :'') }}"></td>
+																	<td class="text-left"><textarea name="edit_amazon_remarks_{{ $usWarehouseToAmazonDetailId }}" {{ $disableForm }} class="form-control" rows="1">{{(!empty($usWarehouseToAmazonDetail->v_remarks) ? ($usWarehouseToAmazonDetail->v_remarks) :'') }}</textarea></td>
+																	<td class="text-left">
+      																 	 <select name="edit_amazon_box_pallet_type_{{ $usWarehouseToAmazonDetailId }}" class="form-control amazon-box-pallet-type-row" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    @if(!empty($boxPalletTypeInfo))
+										                                     	@foreach($boxPalletTypeInfo as $key => $boxPalletType)
+										                                       		{{ $selected = ''}}
+										                                        	@if( (isset($usWarehouseToAmazonDetail) ) && ($usWarehouseToAmazonDetail->e_box_pallet_type == $key))
+										                                        		{{ $selected = "selected='selected'"}}
+										                                        	@endif
+										                                        	<option value='{{ $key }}' {{ $selected }}>{{ $boxPalletType }}</option>
+										                                       	@endforeach
+										                                 	@endif
+		
+		                                                                </select>
+      																</td>
+      																<td class="text-left"><input type="text" onkeyup="onlyDecimal(this)" name="edit_amazon_total_no_of_pallets_boxes_{{ $usWarehouseToAmazonDetailId }}" {{ $disableForm }} class="form-control amazon-total-no-of-pallet-row" value="{{(!empty($usWarehouseToAmazonDetail->i_total_no_of_pallets) ? ($usWarehouseToAmazonDetail->i_total_no_of_pallets) :'') }}"></td>
+																	
+																	<td class="text-left"><input type="text" name="edit_amazon_tracking_no_{{ $usWarehouseToAmazonDetailId }}" {{ ( (isset($usWarehouseToAmazonDetailId) && (!empty($usWarehouseToAmazonDetailId)) ) ? 'disabled' : '' ) }} {{ $disableForm }} class="form-control amazon-tracking-no-row" value="{{(!empty($recordInfo->v_tracking_no) ? $recordInfo->v_tracking_no :'') }}"></td>
+																	<td class="text-left"><input type="text" name="edit_amazon_tracking_link_{{ $usWarehouseToAmazonDetailId }}" {{ $disableForm }} class="form-control" value="{{(!empty($usWarehouseToAmazonDetail->v_tracking_link) ? ($usWarehouseToAmazonDetail->v_tracking_link) :'') }}"></td>
+																	<td class="text-left"><input type="text" name="edit_amazon_appointment_date_{{ $usWarehouseToAmazonDetailId }}"  {{ $disableForm }} class="form-control date-format" value="{{(!empty($usWarehouseToAmazonDetail->dt_amazon_appointment_date) ? clientDate($usWarehouseToAmazonDetail->dt_amazon_appointment_date) :'') }}"></td>
+      																<td class="text-left"><input type="text" name="edit_amazon_appointment_id_{{ $usWarehouseToAmazonDetailId }}" {{ $disableForm }} class="form-control" value="{{(!empty($usWarehouseToAmazonDetail->v_amazon_appointment_id) ? ($usWarehouseToAmazonDetail->v_amazon_appointment_id) :'') }}"></td>
+																	
+						                                     		<td style="width:70px;min-width:70px;">
+		                                                             <?php if(empty($disableForm)){?>
+		                                                            	<button type="button" class="btn btn-sm btn-danger m-auto d-table" onclick="removeLogisticTableRrecord(this)"><i class="fa fa-trash fa-fw"></i></button>
+		                                                            <?php }?>
+		                                                            </td>
+		                                                            
+		                                                        </tr>
+                                                    			<?php
+                                                    		}
+														} else {
+															if(!empty($documentForm)) {
+																?>
+																<tr>
+																	<td colspan="9" class="text-center">{{ trans('messages.no-record-found')}}</td>
+																</tr>
+                                                        		<?php 
+                                                        	} else { 
+	                                                        	?>
+		                                                        <tr>
+		                                                            <td class="table-index text-center" style="width:70px;min-width:70px;">1</td>
+		                                                            <td class="text-left"><input type="text" class="form-control amazon-shipment-id-status" onchange="checkUniqueShipmentId(this)" name="shipment_id_1" {{ $disableForm }}></td>
+		                                                            <td class="text-left"><input type="text" class="form-control ref-amazon-row" name="ref_id_1" {{ $disableForm }}></td>
+		                                                            <td class="text-left">
+		                                                                <select name="account_1" class="form-control account-amazon-row" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                   	<?php 
+		                                                                   	if(!empty($companyMasterRecordDetails)){
+		                                                                   		foreach ($companyMasterRecordDetails as $companyMasterRecordDetail){
+		                                                                   			$encodeId =  Wild_tiger::encode($companyMasterRecordDetail->i_id);
+		                                                                   			?>
+		                                                                   			<option value='{{ $encodeId }}'>{{ (!empty($companyMasterRecordDetail->v_company_name) ? $companyMasterRecordDetail->v_company_name . (!empty($companyMasterRecordDetail->v_company_short_code) ? ' ('. $companyMasterRecordDetail->v_company_short_code . ')' : '' )  : '') }}</option>
+		                                                                   			<?php 
+		                                                                   		}
+		                                                                   	}
+		                                                                   	?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="amazon_from_warehouse_1" class="form-control from-warehouse-amazon-row" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    <?php 
+		                                                                    if(!empty($amazonFromWarehouseDetails)){
+		                                                                    	foreach ($amazonFromWarehouseDetails as $amazonFromWarehouseDetail){
+		                                                                    		$amazonFromWarehouseEncodeId =  Wild_tiger::encode($amazonFromWarehouseDetail->i_id);
+		                                                                    		?>
+		                                                                    		<option value="{{ $amazonFromWarehouseEncodeId }}">{{ (!empty($amazonFromWarehouseDetail->v_warehouse_name) ? $amazonFromWarehouseDetail->v_warehouse_name . (!empty($amazonFromWarehouseDetail->v_warehouse_code) ? ' ('. $amazonFromWarehouseDetail->v_warehouse_code . ')' : '' )  : '') }}</option>
+		                                                                    	<?php 	
+		                                                                    	}
+		                                                                    }?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="to_amazon_location_1" class="form-control to-location-amazon-row select2" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    <?php 
+		                                                                    if(!empty($locationMasterDetails)){
+		                                                                    	foreach ($locationMasterDetails as $locationMasterDetail){
+		                                                                    		$locationMasterDetailEncodeId =  Wild_tiger::encode($locationMasterDetail->i_id);
+		                                                                    		?>
+		                                                                    		<option value="{{ $locationMasterDetailEncodeId }}">{{ (!empty($locationMasterDetail->v_warehouse_name) ? $locationMasterDetail->v_warehouse_name . (!empty($locationMasterDetail->v_warehouse_code) ? ' ('. $locationMasterDetail->v_warehouse_code . ')' : '' ) : '') }}</option>
+		                                                                    	<?php 	
+		                                                                    	}
+		                                                                    }?>
+		
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left"><input type="text" class="form-control product-amazon-row" name="product_1" {{ $disableForm }}></td>
+		                                                            <td class="text-left"><input type="text" class="form-control sku-amazon-row" name="sku_1" {{ $disableForm }}></td>
+		                                                            <td class="text-left"><input type="text" class="form-control unit-amazon-row" name="unit_1" {{ $disableForm }}></td>
+		                                                            <td class="text-left"><input type="text" class="form-control price-amazon-row" {{ $disableForm }} name="price_1" onkeyup="onlyDecimal(this)"></td>
+		                                                            <td class="text-left"><input type="text" {{ $disableForm }} name="amazon_booking_date_1" class="form-control date-format"></td>
+																	<td class="text-left"><input type="text" {{ $disableForm }} name="amazon_collection_date_1" class="form-control date-format"></td>
+																	<td class="text-left"><input type="text" {{ $disableForm }} name="amazon_delivery_date_1" class="form-control date-format"></td>
+																	<td class="text-left"><textarea name="amazon_remarks_1" {{ $disableForm }} class="form-control" rows="1"></textarea></td>
+																	<td class="text-left">
+      																 	 <select name="amazon_box_pallet_type_1" class="form-control amazon-box-pallet-type-row" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    @if(!empty($boxPalletTypeInfo))
+										                                     	@foreach($boxPalletTypeInfo as $key => $boxPalletType)
+										                                        	<option value='{{ $key }}'>{{ $boxPalletType }}</option>
+										                                       	@endforeach
+										                                 	@endif
+		
+		                                                                </select>
+      																</td>
+      																<td class="text-left"><input type="text" onkeyup="onlyDecimal(this)" name="amazon_total_no_of_pallets_boxes_1" {{ $disableForm }} class="form-control amazon-total-no-of-pallet-row"></td>
+																	
+																	<td class="text-left"><input type="text" name="amazon_tracking_no_1" {{ $disableForm }} class="form-control amazon-tracking-no-row"></td>
+																	<td class="text-left"><input type="text" name="amazon_tracking_link_1" {{ $disableForm }} class="form-control"></td>
+																	<td class="text-left"><input type="text" name="amazon_appointment_date_1"  {{ $disableForm }} class="form-control date-format"></td>
+      																<td class="text-left"><input type="text" name="amazon_appointment_id_1" {{ $disableForm }} class="form-control"></td>
+      																<td style="width:70px;min-width:70px;"><button type="button" title="{{ trans('messages.delete') }}" class="btn btn-sm btn-danger m-auto d-table" onclick="removeLogisticTableRrecord(this)"><i class="fa fa-trash fa-fw"></i></button></td>
+		                                                        </tr>
+		                                                        <tr>
+		                                                            <td class="table-index text-center" style="width:70px;min-width:70px;">2</td>
+		                                                            <td class="text-left"><input type="text" {{ $disableForm }} class="form-control amazon-shipment-id-status" onchange="checkUniqueShipmentId(this)" name="shipment_id_2"></td>
+		                                                            <td class="text-left"><input type="text" {{ $disableForm }} class="form-control ref-amazon-row" name="ref_id_2"></td>
+		                                                            <td class="text-left">
+		                                                                <select name="account_2" class="form-control account-amazon-row" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                   	<?php 
+		                                                                   	if(!empty($companyMasterRecordDetails)){
+		                                                                   		foreach ($companyMasterRecordDetails as $companyMasterRecordDetail){
+		                                                                   			$encodeId =  Wild_tiger::encode($companyMasterRecordDetail->i_id);
+		                                                                   			?>
+		                                                                   			<option value='{{ $encodeId }}'>{{ (!empty($companyMasterRecordDetail->v_company_name) ? $companyMasterRecordDetail->v_company_name . (!empty($companyMasterRecordDetail->v_company_short_code) ? ' ('. $companyMasterRecordDetail->v_company_short_code . ')' : '' )  : '') }}</option>
+		                                                                   			<?php 
+		                                                                   		}
+		                                                                   	}
+		                                                                   	?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="amazon_from_warehouse_2" class="form-control from-warehouse-amazon-row" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    <?php 
+		                                                                    if(!empty($amazonFromWarehouseDetails)){
+		                                                                    	foreach ($amazonFromWarehouseDetails as $amazonFromWarehouseDetail){
+		                                                                    		$amazonFromWarehouseEncodeId =  Wild_tiger::encode($amazonFromWarehouseDetail->i_id);
+		                                                                    		?>
+		                                                                    		<option value="{{ $amazonFromWarehouseEncodeId }}">{{ (!empty($amazonFromWarehouseDetail->v_warehouse_name) ? $amazonFromWarehouseDetail->v_warehouse_name . (!empty($amazonFromWarehouseDetail->v_warehouse_code) ? ' ('. $amazonFromWarehouseDetail->v_warehouse_code . ')' : '' ) : '') }}</option>
+		                                                                    	<?php 	
+		                                                                    	}
+		                                                                    }?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="to_amazon_location_2" class="form-control to-location-amazon-row select2" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    <?php 
+		                                                                    if(!empty($locationMasterDetails)){
+		                                                                    	foreach ($locationMasterDetails as $locationMasterDetail){
+		                                                                    		$locationMasterDetailEncodeId =  Wild_tiger::encode($locationMasterDetail->i_id);
+		                                                                    		?>
+		                                                                    		<option value="{{ $locationMasterDetailEncodeId }}">{{ (!empty($locationMasterDetail->v_warehouse_name) ? $locationMasterDetail->v_warehouse_name . (!empty($locationMasterDetail->v_warehouse_code) ? ' ('. $locationMasterDetail->v_warehouse_code . ')' : '' )  : '') }}</option>
+		                                                                    	<?php 	
+		                                                                    	}
+		                                                                    }?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left"><input type="text" class="form-control product-amazon-row" name="product_2" {{ $disableForm }}></td>
+		                                                            <td class="text-left"><input type="text" class="form-control sku-amazon-row" name="sku_2" {{ $disableForm }}></td>
+		                                                            <td class="text-left"><input type="text" class="form-control unit-amazon-row" name="unit_2" {{ $disableForm }}></td>
+		                                                            <td class="text-left"><input type="text" class="form-control  price-amazon-row" {{ $disableForm }} name="price_2" onkeyup="onlyDecimal(this)"></td>
+		                                                            <td class="text-left"><input type="text" {{ $disableForm }} name="amazon_booking_date_2" class="form-control date-format"></td>
+																	<td class="text-left"><input type="text" {{ $disableForm }} name="amazon_collection_date_2" class="form-control date-format"></td>
+																	<td class="text-left"><input type="text" {{ $disableForm }} name="amazon_delivery_date_2" class="form-control date-format"></td>
+																	<td class="text-left"><textarea name="amazon_remarks_2" {{ $disableForm }} class="form-control" rows="1"></textarea></td>
+																	<td class="text-left">
+      																 	 <select name="amazon_box_pallet_type_2" class="form-control amazon-box-pallet-type-row" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    @if(!empty($boxPalletTypeInfo))
+										                                     	@foreach($boxPalletTypeInfo as $key => $boxPalletType)
+										                                       		{{ $selected = ''}}
+										                                        	@if( (isset($recordInfo) ) && ($recordInfo->e_box_pallet_type == $key))
+										                                        		{{ $selected = "selected='selected'"}}
+										                                        	@endif
+										                                        	<option value='{{ $key }}' {{ $selected }}>{{ $boxPalletType }}</option>
+										                                       	@endforeach
+										                                 	@endif
+		
+		                                                                </select>
+      																</td>
+      																<td class="text-left"><input type="text" onkeyup="onlyDecimal(this)" name="amazon_total_no_of_pallets_boxes_2" {{ $disableForm }} class="form-control amazon-total-no-of-pallet-row"></td>
+		                                           
+																	<td class="text-left"><input type="text" name="amazon_tracking_no_2" {{ $disableForm }} class="form-control amazon-tracking-no-row"></td>
+																	<td class="text-left"><input type="text" name="amazon_tracking_link_2" {{ $disableForm }} class="form-control"></td>
+																	<td class="text-left"><input type="text" name="amazon_appointment_date_2"  {{ $disableForm }} class="form-control date-format"></td>
+      																<td class="text-left"><input type="text" name="amazon_appointment_id_2" {{ $disableForm }} class="form-control"></td>
+              														<td style="width:70px;min-width:70px;">
+		                                                            	<?php if(empty($disableForm )){?>
+		                                                            	<button type="button" title="{{ trans('messages.delete') }}" class="btn btn-sm btn-danger m-auto d-table" onclick="removeLogisticTableRrecord(this)"><i class="fa fa-trash fa-fw"></i></button>
+		                                                            	<?php } ?>	
+		                                                            </td>
+		                                                        </tr>
+                                                       	<?php }
+														} ?>
+                                                    </tbody>
+                                                </table>
+                                                <?php if(empty($disableForm )){?>
+                                                <button type="button" class="btn btn-sm bg-theme text-white add-new-row mb-3" title="{{ trans('messages.add-new') }}" onclick="addNewShipmentDetailsAmazon(this)"><i class="fa fa-plus fa-fw"></i>{{ trans("messages.add-new") }}</button>
+                                               	<?php } ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-12 shipment-details-customer-record" {{  ( isset($recordInfo) && ($recordInfo->e_to_location == config("constants.CUSTOMER_FBA_SHEET")) ? "" : "style=display:none") }}>
+                                <div class="form-group pb-3 pt-3">
+                                    <div class="card shadow-none border">
+                                        <div class="card-header">
+                                            <span class="partner-tilte">
+                                                {{ trans("messages.shipment-details-customer") }}
+                                            </span>
+                                            <?php if(!isset($recordInfo)) { ?>
+											<a href="javascript:void(0)"  class="btn btn-success border-0 float-right" onclick="openCSVImportModel(this)">{{ trans('messages.import') }}</a>
+											<?php } ?>
+                                        </div>
+                                        <div class="card-body logistic-partner">
+                                            <div class="table-responsive">
+                                                <table class="table table-hover table-bordered table-sm pb-4">
+                                                    <thead>
+                                                        <tr class="text-center">
+                                                            <th style="max-width:70px;min-width:70px;">{{ trans("messages.sr-no") }}</th>
+                                                            <th style="max-width:200px;min-width:200px;">{{ trans("messages.invoice-no") }} <span class="text-danger">*</span></th>
+                                                            <th style="max-width:200px;min-width:200px;">{{ trans("messages.customer-name") }}<span class="text-danger">*</span></th>
+                                                            <th style="max-width:220px;min-width:220px;">{{ trans("messages.from-us-warehouse") }} <span class="text-danger">*</span></th>
+                                                            <th style="width:200px;min-width:200px;">{{ trans("messages.to-customer-location") }} <span class="text-danger">*</span></th>
+                                                            <th style="width:120px;min-width:120px;">{{ trans("messages.unit") }}<span class="text-danger">*</span></th>
+                                                            <?php /*?>
+                                                            	<th style="width:120px;min-width:120px;">{{ trans("messages.box-pallet") }}</th>
+                                                            <?php */?>
+                                                            <th style="width:200px;min-width:200px;">{{ trans("messages.booking-date") }}</th>
+                                                            <th style="width:200px;min-width:200px;">{{ trans("messages.collection-date") }}</th>
+                                                            <th style="width:200px;min-width:200px;">{{ trans("messages.delivery-date") }}</th>
+                                                            <th style="width:200px;min-width:200px;">{{ trans("messages.remarks") }}</th>
+                                                            <th style="max-width:160px;min-width:160px;">{{ trans("messages.type") }}<span class="text-danger">*</span></th>
+                                                            <th style="max-width:160px;min-width:160px;">{{ trans("messages.total-no-of-pallets") }}<span class="text-danger">*</span></th>
+                                                            <th style="width:200px;min-width:200px;">{{ trans("messages.tracking-no") }}<span class="text-danger">*</span></th>
+                                                            <th style="width:200px;min-width:200px;">{{ trans("messages.tracking-link") }}</th>
+                                                            
+                                                            <th style="width:75px;min-width:75pxpx;">{{ trans("messages.action") }}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody class="shipment-details-customer-record-tbody">
+                                                    <?php 
+                                                    	if(!empty($recordInfo->usWarehouseToAmazonDetails) && count($recordInfo->usWarehouseToAmazonDetails) > 0){
+                                                    		foreach ($recordInfo->usWarehouseToAmazonDetails as $countKey => $usWarehouseToCustomerDetail){
+                                                    			$usWarehouseToCustomerDetailId = (!empty($usWarehouseToCustomerDetail->i_id) ? $usWarehouseToCustomerDetail->i_id :'');
+                                                    			$columIndex  = ( $countKey +  1 );
+                                                    			?>
+                                                    			<tr>
+		                                                            <td class="table-index text-center">{{ $columIndex }}</td>
+		                                                            <td class="text-left">
+		                                                                <input type="text" class="form-control invoice-no-customer-record amazon-shipment-id-status" data-record-type='{{ config("constants.US_WAREHOUSE_TO_CUSTOMER") }}' data-shipment-id='{{ $usWarehouseToCustomerDetailId }}' onchange="checkUniqueShipmentId(this)" {{ $disableForm }} name="edit_invoice_no_{{ $usWarehouseToCustomerDetailId }}" value="{{ (!empty($usWarehouseToCustomerDetail->v_shipment_invoice_no) ? $usWarehouseToCustomerDetail->v_shipment_invoice_no :'') }}">
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="edit_customer_name_{{ $usWarehouseToCustomerDetailId }}" {{ $disableForm }} class="form-control customer-name-record select2">
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    <?php 
+		                                                                    if(!empty($customerRecordDetails)){
+		                                                                    	foreach ($customerRecordDetails as $customerRecordDetail){
+		                                                                    		$customerRecordDetailEncodedId = Wild_tiger::encode($customerRecordDetail->i_id);
+		                                                                    		$selected = '';
+		                                                                    		if( isset($usWarehouseToCustomerDetail->i_customer_id) && ( $usWarehouseToCustomerDetail->i_customer_id == $customerRecordDetail->i_id ) ){
+		                                                                    			$selected = "selected='selected'";
+		                                                                    		}
+		                                                                    		?>
+		                                                                    		<option value="{{ $customerRecordDetailEncodedId }}" {{ $selected }}>{{ (!empty($customerRecordDetail->v_customer_name) ? $customerRecordDetail->v_customer_name : '') }}</option>
+		                                                                    		<?php 
+		                                                                    	}
+		                                                                    }
+		                                                                    ?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="edit_customer_from_warehouse_{{ $usWarehouseToCustomerDetailId }}" {{ $disableForm }} class="form-control customer-from-warehouse-record">
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    <?php 
+		                                                                    if(!empty($amazonFromWarehouseDetails)){
+		                                                                    	foreach ($amazonFromWarehouseDetails as $amazonFromWarehouseDetail){
+		                                                                    		$amazonFromWarehouseEncodeId =  Wild_tiger::encode($amazonFromWarehouseDetail->i_id);
+		                                                                    		$selected = '';
+		                                                                    		if( isset($usWarehouseToCustomerDetail->i_customer_from_warehouse_id) && ( $usWarehouseToCustomerDetail->i_customer_from_warehouse_id == $amazonFromWarehouseDetail->i_id ) ){
+		                                                                    			$selected = "selected='selected'";
+		                                                                    		}
+		                                                                    		?>
+		                                                                    		<option value="{{ $amazonFromWarehouseEncodeId }}" {{ $selected }}>{{ (!empty($amazonFromWarehouseDetail->v_warehouse_name) ? $amazonFromWarehouseDetail->v_warehouse_name  . (!empty($amazonFromWarehouseDetail->v_warehouse_code) ? ' ('. $amazonFromWarehouseDetail->v_warehouse_code . ')' : '' )  : '') }}</option>
+		                                                                    	<?php 	
+		                                                                    	}
+		                                                                    }?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="edit_to_customer_{{ $usWarehouseToCustomerDetailId }}" {{ $disableForm }} class="form-control to-customer-record select2">
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    <?php 
+										                                    if(!empty($customerLocationRecordDetails)){
+										                                    	foreach ($customerLocationRecordDetails as $customerLocationRecordDetail){
+										                                     		$customerLocationRecordDetailId = Wild_tiger::encode($customerLocationRecordDetail->i_id);
+										                                     		$selected = '';
+										                                     		if( isset($usWarehouseToCustomerDetail->i_to_customer_id) && ( $usWarehouseToCustomerDetail->i_to_customer_id == $customerLocationRecordDetail->i_id ) ){
+										                                     			$selected = "selected='selected'";
+										                                     		}
+										                                     		?>
+										                                    		<option value="{{ $customerLocationRecordDetailId }}" {{ $selected }}>{{ (!empty($customerLocationRecordDetail->v_customer_code) ? $customerLocationRecordDetail->v_customer_code .(!empty($customerLocationRecordDetail->v_customer_address) ? ' - ' .$customerLocationRecordDetail->v_customer_address :''): '' ) }}</option>
+										                                        	<?php 
+										                                     	}
+										                                   	}
+										                                 	?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <input type="text" class="form-control customer-unit-record" {{ $disableForm }} name="edit_customer_unit_{{ $usWarehouseToCustomerDetailId }}" value="{{ (!empty($usWarehouseToCustomerDetail->v_customer_unit) ? $usWarehouseToCustomerDetail->v_customer_unit :'') }}">
+		                                                            </td>
+		                                                            <?php /*?>
+		                                                            <td class="text-left">
+		                                                                <input type="text" class="form-control" {{ $disableForm }} name="edit_box_pallet_{{ $usWarehouseToCustomerDetailId }}" value="{{ (!empty($usWarehouseToCustomerDetail->v_box_pallet) ? $usWarehouseToCustomerDetail->v_box_pallet :'') }}">
+		                                                            </td>
+		                                                            <?php */?>
+		                                                            <td class="text-left"><input type="text" {{ $disableForm }} name="edit_customer_booking_date_{{ $usWarehouseToCustomerDetailId }}" class="form-control date-format" value="{{ (!empty($usWarehouseToCustomerDetail->dt_booking_date) ? clientDate($usWarehouseToCustomerDetail->dt_booking_date) :'') }}"></td>
+																	<td class="text-left"><input type="text" {{ $disableForm }} name="edit_customer_collection_date_{{ $usWarehouseToCustomerDetailId }}" class="form-control date-format" value="{{ (!empty($usWarehouseToCustomerDetail->dt_collection_date) ? clientDate($usWarehouseToCustomerDetail->dt_collection_date) :'') }}"></td>
+																	<td class="text-left"><input type="text" {{ $disableForm }} name="edit_customer_delivery_date_{{ $usWarehouseToCustomerDetailId }}" class="form-control date-format" value="{{ (!empty($usWarehouseToCustomerDetail->dt_delivery_date) ? clientDate($usWarehouseToCustomerDetail->dt_delivery_date) :'') }}"></td>
+																	<td class="text-left"><textarea name="edit_customer_remarks_{{ $usWarehouseToCustomerDetailId }}" {{ $disableForm }} class="form-control" rows="1">{{ (!empty($usWarehouseToCustomerDetail->v_remarks) ? ($usWarehouseToCustomerDetail->v_remarks) :'') }}</textarea></td>
+																	<td class="text-left">
+      																 	 <select name="edit_customer_box_pallet_type_{{ $usWarehouseToCustomerDetailId }}" class="form-control customer-box-pallets-row" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    @if(!empty($boxPalletTypeInfo))
+										                                     	@foreach($boxPalletTypeInfo as $key => $boxPalletType)
+										                                       		{{ $selected = ''}}
+										                                        	@if( (isset($usWarehouseToCustomerDetail) ) && ($usWarehouseToCustomerDetail->e_box_pallet_type == $key))
+										                                        		{{ $selected = "selected='selected'"}}
+										                                        	@endif
+										                                        	<option value='{{ $key }}' {{ $selected }}>{{ $boxPalletType }}</option>
+										                                       	@endforeach
+										                                 	@endif
+		
+		                                                                </select>
+      																</td>
+      																<td class="text-left"><input type="text" onkeyup="onlyDecimal(this)" name="edit_customer_total_no_of_pallets_boxes_{{ $usWarehouseToCustomerDetailId }}" {{ $disableForm }} class="form-control customer-total-no-of-box-pallets-row" value="{{(!empty($usWarehouseToCustomerDetail->i_total_no_of_pallets) ? ($usWarehouseToCustomerDetail->i_total_no_of_pallets) :'') }}"></td>
+																	
+																	<td class="text-left"><input type="text" name="edit_customer_tracking_no_{{ $usWarehouseToCustomerDetailId }}" {{ ( (isset($usWarehouseToCustomerDetailId) && (!empty($usWarehouseToCustomerDetailId)) ) ? 'disabled' : '' ) }} {{ $disableForm }} class="form-control customer-tracking-no-record" value="{{ (!empty($recordInfo->v_tracking_no) ? ($recordInfo->v_tracking_no)  :'') }}"></td>
+																	<td class="text-left"><input type="text" name="edit_customer_tracking_link_{{ $usWarehouseToCustomerDetailId }}" {{ $disableForm }} class="form-control" value="{{ (!empty($usWarehouseToCustomerDetail->v_tracking_link) ? ($usWarehouseToCustomerDetail->v_tracking_link) :'') }}"></td>
+																	
+		                                                            <td class="text-left">
+		                                                            	<?php if(empty($disableForm )){?>
+		                                                                <a title="{{ trans('messages.delete') }}" href="javascript:void(0);" class="btn btn-sm btn-danger mb-1" onclick="removeLogisticTableRrecord(this)"><i class="fa fa-trash fa-fw"></i></a>
+		                                                                <?php } ?>
+		                                                            </td>
+		                                                        </tr>
+                                                    			<?php 
+                                                    		}
+                                                    	} else {
+                                                    		if(!empty($disableForm)) {
+                                                    			?>
+                                                    		 	<tr>
+                                                    				<td colspan="8" class="text-center">{{ trans('messages.no-record-found')}}</td>
+                                                    			</tr>
+                                                    			<?php 
+                                                    		} else {
+                                                    			?>
+                                                    		
+		                                                        <tr>
+		                                                            <td class="table-index text-center">1</td>
+		                                                            <td class="text-left">
+		                                                                <input type="text" class="form-control invoice-no-customer-record amazon-shipment-id-status" onchange="checkUniqueShipmentId(this)" name="invoice_no_1" {{ $documentForm }}>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="customer_name_1" class="form-control customer-name-record select2" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    <?php 
+		                                                                    if(!empty($customerRecordDetails)){
+		                                                                    	foreach ($customerRecordDetails as $customerRecordDetail){
+		                                                                    		$customerRecordDetailEncodedId = Wild_tiger::encode($customerRecordDetail->i_id);
+		                                                                    		?>
+		                                                                    		<option value="{{ $customerRecordDetailEncodedId }}">{{ (!empty($customerRecordDetail->v_customer_name) ? $customerRecordDetail->v_customer_name : '') }}</option>
+		                                                                    		<?php 
+		                                                                    	}
+		                                                                    }
+		                                                                    ?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="customer_from_warehouse_1" class="form-control customer-from-warehouse-record" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    <?php 
+		                                                                    if(!empty($amazonFromWarehouseDetails)){
+		                                                                    	foreach ($amazonFromWarehouseDetails as $amazonFromWarehouseDetail){
+		                                                                    		$amazonFromWarehouseEncodeId =  Wild_tiger::encode($amazonFromWarehouseDetail->i_id);
+		                                                                    		?>
+		                                                                    		<option value="{{ $amazonFromWarehouseEncodeId }}">{{ (!empty($amazonFromWarehouseDetail->v_warehouse_name) ? $amazonFromWarehouseDetail->v_warehouse_name . (!empty($amazonFromWarehouseDetail->v_warehouse_code) ? ' ('. $amazonFromWarehouseDetail->v_warehouse_code . ')' : '' ) : '') }}</option>
+		                                                                    	<?php 	
+		                                                                    	}
+		                                                                    }?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="to_customer_1" class="form-control to-customer-record select2" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    <?php 
+										                                    if(!empty($customerLocationRecordDetails)){
+										                                    	foreach ($customerLocationRecordDetails as $customerLocationRecordDetail){
+										                                     		$customerLocationRecordDetailId = Wild_tiger::encode($customerLocationRecordDetail->i_id);
+										                                     		?>
+										                                    		<option value="{{ $customerLocationRecordDetailId }}">{{ (!empty($customerLocationRecordDetail->v_customer_code) ? $customerLocationRecordDetail->v_customer_code .(!empty($customerLocationRecordDetail->v_customer_address) ? ' - ' .$customerLocationRecordDetail->v_customer_address :''): '' ) }}</option>
+										                                        	<?php 
+										                                     	}
+										                                   	}
+										                                 	?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <input type="text" class="form-control customer-unit-record" name="customer_unit_1" {{ $disableForm }}>
+		                                                            </td>
+		                                                            <?php /*?>
+		                                                            <td class="text-left">
+		                                                                <input type="text" class="form-control" name="box_pallet_1" {{ $disableForm }}>
+		                                                            </td>
+		                                                            <?php */?>
+		                                                            <td class="text-left"><input type="text" {{ $disableForm }} name="customer_booking_date_1" class="form-control date-format"></td>
+																	<td class="text-left"><input type="text" {{ $disableForm }} name="customer_collection_date_1" class="form-control date-format"></td>
+																	<td class="text-left"><input type="text" {{ $disableForm }} name="customer_delivery_date_1" class="form-control date-format"></td>
+																	<td class="text-left"><textarea name="customer_remarks_1" {{ $disableForm }} class="form-control" rows="1"></textarea></td>
+																	<td class="text-left">
+      																 	 <select name="customer_box_pallet_type_1" class="form-control customer-box-pallets-row" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    @if(!empty($boxPalletTypeInfo))
+										                                     	@foreach($boxPalletTypeInfo as $key => $boxPalletType)
+										                                        	<option value='{{ $key }}' >{{ $boxPalletType }}</option>
+										                                       	@endforeach
+										                                 	@endif
+		
+		                                                                </select>
+      																</td>
+      																<td class="text-left"><input type="text" onkeyup="onlyDecimal(this)" name="customer_total_no_of_pallets_boxes_1" {{ $disableForm }} class="form-control customer-total-no-of-box-pallets-row"></td>
+		                                                           
+																	<td class="text-left"><input type="text" name="customer_tracking_no_1" {{ $disableForm }} class="form-control customer-tracking-no-record"></td>
+																	<td class="text-left"><input type="text" name="customer_tracking_link_1" {{ $disableForm }} class="form-control"></td>
+																	<td class="text-left">
+		                                                            	<?php if(empty($disableForm )){?>
+		                                                                <a title="{{ trans('messages.delete') }}" href="javascript:void(0);" class="btn btn-sm btn-danger mb-1 d-none"><i class="fa fa-trash fa-fw"></i></a>
+		                                                                <?php } ?>
+		                                                            </td>
+		                                                        </tr>
+		                                                        <tr>
+		                                                            <td class="table-index text-center">2</td>
+		                                                            <td class="text-left">
+		                                                                <input type="text" class="form-control invoice-no-customer-record amazon-shipment-id-status"  onchange="checkUniqueShipmentId(this)" name="invoice_no_2" {{ $disableForm }}>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="customer_name_2" class="form-control customer-name-record select2" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    <?php 
+		                                                                    if(!empty($customerRecordDetails)){
+		                                                                    	foreach ($customerRecordDetails as $customerRecordDetail){
+		                                                                    		$customerRecordDetailEncodedId = Wild_tiger::encode($customerRecordDetail->i_id);
+		                                                                    		?>
+		                                                                    		<option value="{{ $customerRecordDetailEncodedId }}">{{ (!empty($customerRecordDetail->v_customer_name) ? $customerRecordDetail->v_customer_name : '') }}</option>
+		                                                                    		<?php 
+		                                                                    	}
+		                                                                    }
+		                                                                    ?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="customer_from_warehouse_2" class="form-control customer-from-warehouse-record" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    <?php 
+		                                                                    if(!empty($amazonFromWarehouseDetails)){
+		                                                                    	foreach ($amazonFromWarehouseDetails as $amazonFromWarehouseDetail){
+		                                                                    		$amazonFromWarehouseEncodeId =  Wild_tiger::encode($amazonFromWarehouseDetail->i_id);
+		                                                                    		?>
+		                                                                    		<option value="{{ $amazonFromWarehouseEncodeId }}">{{ (!empty($amazonFromWarehouseDetail->v_warehouse_name) ? $amazonFromWarehouseDetail->v_warehouse_name . (!empty($amazonFromWarehouseDetail->v_warehouse_code) ? ' ('. $amazonFromWarehouseDetail->v_warehouse_code . ')' : '' )  : '') }}</option>
+		                                                                    	<?php 	
+		                                                                    	}
+		                                                                    }?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="to_customer_2" class="form-control to-customer-record select2" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    <?php 
+										                                    if(!empty($customerLocationRecordDetails)){
+										                                    	foreach ($customerLocationRecordDetails as $customerLocationRecordDetail){
+										                                     		$customerLocationRecordDetailId = Wild_tiger::encode($customerLocationRecordDetail->i_id);
+										                                     		?>
+										                                    		<option value="{{ $customerLocationRecordDetailId }}">{{ (!empty($customerLocationRecordDetail->v_customer_code) ? $customerLocationRecordDetail->v_customer_code .(!empty($customerLocationRecordDetail->v_customer_address) ? ' - ' .$customerLocationRecordDetail->v_customer_address :''): '' ) }}</option>
+										                                        	<?php 
+										                                     	}
+										                                   	}
+										                                 	?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <input type="text" class="form-control customer-unit-record" name="customer_unit_2" {{ $disableForm }}>
+		                                                            </td>
+		                                                            <?php /*?>
+		                                                            <td class="text-left">
+		                                                                <input type="text" class="form-control" name="box_pallet_2" {{ $disableForm }}>
+		                                                            </td>
+		                                                            <?php */?>
+		                                                            <td class="text-left"><input type="text" {{ $disableForm }} name="customer_booking_date_2" class="form-control date-format"></td>
+																	<td class="text-left"><input type="text" {{ $disableForm }} name="customer_collection_date_2" class="form-control date-format"></td>
+																	<td class="text-left"><input type="text" {{ $disableForm }} name="customer_delivery_date_2" class="form-control date-format"></td>
+																	<td class="text-left"><textarea name="customer_remarks_2" {{ $disableForm }} class="form-control" rows="1"></textarea></td>
+																	<td class="text-left">
+      																 	 <select name="customer_box_pallet_type_2" class="form-control customer-box-pallets-row" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    @if(!empty($boxPalletTypeInfo))
+										                                     	@foreach($boxPalletTypeInfo as $key => $boxPalletType)
+										                                        	<option value='{{ $key }}'>{{ $boxPalletType }}</option>
+										                                       	@endforeach
+										                                 	@endif
+		
+		                                                                </select>
+      																</td>
+      																<td class="text-left"><input type="text" onkeyup="onlyDecimal(this)" name="customer_total_no_of_pallets_boxes_2" {{ $disableForm }} class="form-control customer-total-no-of-box-pallets-row"></td>
+		                                                            
+																	<td class="text-left"><input type="text" name="customer_tracking_no_2" {{ $disableForm }} class="form-control customer-tracking-no-record"></td>
+																	<td class="text-left"><input type="text" name="customer_tracking_link_2" {{ $disableForm }} class="form-control"></td>
+																	<td class="text-left">
+		                                                            	<?php if(empty($disableForm )){?>
+		                                                                <a title="{{ trans('messages.delete') }}" href="javascript:void(0);" class="btn btn-sm btn-danger mb-1" onclick="removeLogisticTableRrecord(this)"><i class="fa fa-trash fa-fw"></i></a>
+		                                                                <?php } ?>
+		                                                            </td>
+		                                                        </tr>
+		                                                        <?php  } ?>
+	                                                	<?php } ?>
+                                                    </tbody>
+                                                </table>
+                                                <?php if(empty($disableForm)){?>
+                                                	<button type="button" class="btn btn-sm bg-theme text-white add-new-row mb-3" title="{{ trans('messages.add-new') }}" onclick="addNewShipmentDetailsCustomer(this)"><i class="fa fa-plus fa-fw"></i>{{ trans("messages.add-new") }}</button>
+                                                <?php } ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-12 shipment-details-uk-warehouse-record" {{ ( isset($recordInfo) && ($recordInfo->e_to_location == config("constants.UK_WAREHOUSE_FBA_SHEET")) ? "" : "style=display:none") }}>
+                                <div class="form-group pb-3 pt-3">
+                                    <div class="card shadow-none border">
+                                        <div class="card-header">
+                                            <span class="partner-tilte">
+                                                {{ trans("messages.shipment-details-uk-warehouse") }}
+                                            </span>
+                                            <?php if(!isset($recordInfo)) { ?>
+											<a href="javascript:void(0)"  class="btn btn-success border-0 float-right" onclick="openCSVImportModel(this)">{{ trans('messages.import') }}</a>
+											<?php } ?>
+                                        </div>
+                                        <div class="card-body logistic-partner">
+                                            <div class="table-responsive">
+                                                <table class="table table-hover table-bordered table-sm pb-4">
+                                                    <thead>
+                                                        <tr class="text-center">
+                                                            <th style="max-width:70px;min-width:70px;">{{ trans("messages.sr-no") }}</th>
+                                                            <th style="max-width:200px;min-width:200px;">{{ trans("messages.invoice-no-ref-no") }} <span class="text-danger">*</span></th>
+                                                            <th style="max-width:200px;min-width:200px;">{{ trans("messages.account") }}<span class="text-danger">*</span></th>
+                                                            <th style="max-width:220px;min-width:220px;">{{ trans("messages.from-us-warehouse") }} <span class="text-danger">*</span></th>
+                                                            <th style="width:200px;min-width:200px;">{{ trans("messages.to-uk-warehouse") }} <span class="text-danger">*</span></th>
+                                                            <th style="width:120px;min-width:120px;">{{ trans("messages.unit") }}<span class="text-danger">*</span></th>
+                                                            <?php /*?>
+                                                            <th style="width:120px;min-width:120px;">{{ trans("messages.box-pallet") }}</th>
+                                                            <?php */?>
+                                                            <th style="width:200px;min-width:200px;">{{ trans("messages.booking-date") }}</th>
+                                                            <th style="width:200px;min-width:200px;">{{ trans("messages.collection-date") }}</th>
+                                                            <th style="width:200px;min-width:200px;">{{ trans("messages.delivery-date") }}</th>
+                                                            <th style="width:200px;min-width:200px;">{{ trans("messages.remarks") }}</th>
+                                                            <th style="max-width:160px;min-width:160px;">{{ trans("messages.type") }}<span class="text-danger">*</span></th>
+                                                            <th style="max-width:160px;min-width:160px;">{{ trans("messages.total-no-of-pallets") }}<span class="text-danger">*</span></th>
+                                                            <th style="width:200px;min-width:200px;">{{ trans("messages.tracking-no") }}<span class="text-danger">*</span></th>
+                                                            <th style="width:200px;min-width:200px;">{{ trans("messages.tracking-link") }}</th>
+                                                            <th style="width:75px;min-width:75pxpx;">{{ trans("messages.action") }}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody class="shipment-details-uk-warehouse-tbody">
+                                                    	<?php 
+                                                    	if(!empty($recordInfo->usWarehouseToAmazonDetails) && count($recordInfo->usWarehouseToAmazonDetails) > 0){
+                                                    		foreach ($recordInfo->usWarehouseToAmazonDetails as $countKey => $usWarehouseToUkWarehouseDetail){
+                                                    			$columIndex  = ( $countKey +  1 );
+                                                    			$usWarehouseToUkWarehouseDetailId = $usWarehouseToUkWarehouseDetail->i_id;
+                                                    			?>
+                                                    			<tr>
+		                                                            <td class="table-index text-center">{{ $columIndex  }}</td>
+		                                                            <td class="text-left">
+		                                                                <input type="text" {{ $disableForm }} class="form-control invoice-no-ref-no-row amazon-shipment-id-status" onchange="checkUniqueShipmentId(this)" data-record-type='{{ config("constants.US_WAREHOUSE_TO_UK_WAREHOUSE") }}' data-shipment-id='{{ $usWarehouseToUkWarehouseDetailId }}' name="edit_invoice_no_ref_no_{{ $usWarehouseToUkWarehouseDetailId }}" value="{{ (!empty($usWarehouseToUkWarehouseDetail->v_invoice_no_ref_no) ? $usWarehouseToUkWarehouseDetail->v_invoice_no_ref_no  :'') }}">
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="edit_uk_account_{{ $usWarehouseToUkWarehouseDetailId }}[]" {{ $disableForm }} class="form-control uk-account-row select2" multiple>
+		                                                                    <?php 
+		                                                                    $accountComapnyExploadId = (isset($usWarehouseToUkWarehouseDetail->v_uk_account_ids) ? explode(',', $usWarehouseToUkWarehouseDetail->v_uk_account_ids) : []);
+		                                                                    if(!empty($companyMasterRecordDetails)){
+		                                                                    	foreach ($companyMasterRecordDetails as $companyMasterRecordDetail){
+		                                                                    		$compnayRecordDetailEncodedId = Wild_tiger::encode($companyMasterRecordDetail->i_id);
+		                                                                    		$selected = '';
+		                                                                    		if(in_array($companyMasterRecordDetail->i_id , $accountComapnyExploadId)){
+		                                                                    			$selected = "selected='selected'";
+		                                                                    		}
+		                                                                    		?>
+		                                                                    		<option value="{{ $compnayRecordDetailEncodedId }}" {{ $selected }}>{{ (!empty($companyMasterRecordDetail->v_company_name) ? $companyMasterRecordDetail->v_company_name . (!empty($companyMasterRecordDetail->v_company_short_code) ? ' ('. $companyMasterRecordDetail->v_company_short_code . ')' : '' )  : '') }}</option>
+		                                                                    		<?php 
+		                                                                    	}
+		                                                                    }
+		                                                                    ?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="edit_uk_from_warehouse_{{ $usWarehouseToUkWarehouseDetailId }}"  {{ $disableForm }} class="form-control uk-from-warehouse-row">
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                   	<?php 
+									                                         if(!empty($amazonFromWarehouseDetails)){
+									                                         	foreach ($amazonFromWarehouseDetails as $amazonFromWarehouseDetail){
+									                                            	$amazonFromWarehouseEncodeId =  Wild_tiger::encode($amazonFromWarehouseDetail->i_id);
+									                                            	$selected = '';
+									                                            	if( isset($usWarehouseToUkWarehouseDetail->i_uk_from_warehouse_id) && ( $usWarehouseToUkWarehouseDetail->i_uk_from_warehouse_id == $amazonFromWarehouseDetail->i_id ) ){
+									                                            		$selected = "selected='selected'";
+									                                            	}
+									                                            	?>
+									                                            	<option value="{{ $amazonFromWarehouseEncodeId }}" {{ $selected }}>{{ (!empty($amazonFromWarehouseDetail->v_warehouse_name) ? $amazonFromWarehouseDetail->v_warehouse_name . (!empty($amazonFromWarehouseDetail->v_warehouse_code) ? ' ('. $amazonFromWarehouseDetail->v_warehouse_code . ')' : '' ) : '') }}</option>
+									                                            	<?php 	
+									                                         	}
+									                                        }?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="edit_uk_to_warehouse_{{ $usWarehouseToUkWarehouseDetailId }}" {{ $disableForm }} class="form-control uk-to-warehouse-row">
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    <?php 
+									                                         if(!empty($ukWarehouseDetails)){
+									                                         	foreach ($ukWarehouseDetails as $ukWarehouseDetail){
+									                                            	$uWwarehouseEncodeId =  Wild_tiger::encode($ukWarehouseDetail->i_id);
+									                                            	$selected = '';
+									                                            	if( isset($usWarehouseToUkWarehouseDetail->i_uk_to_warehouse_id) && ( $usWarehouseToUkWarehouseDetail->i_uk_to_warehouse_id == $ukWarehouseDetail->i_id ) ){
+									                                            		$selected = "selected='selected'";
+									                                            	}
+									                                            	?>
+									                                            	<option value="{{ $uWwarehouseEncodeId }}" {{ $selected }}>{{ (!empty($ukWarehouseDetail->v_warehouse_name) ? $ukWarehouseDetail->v_warehouse_name  . (!empty($ukWarehouseDetail->v_warehouse_code) ? ' ('. $ukWarehouseDetail->v_warehouse_code . ')' : '' ) : '') }}</option>
+									                                            	<?php 	
+									                                         	}
+									                                        }?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <input type="text" class="form-control uk-unit-row" {{ $disableForm }} name="edit_uk_unit_{{ $usWarehouseToUkWarehouseDetailId }}" value="{{ (!empty($usWarehouseToUkWarehouseDetail->v_uk_unit) ? $usWarehouseToUkWarehouseDetail->v_uk_unit  :'') }}">
+		                                                            </td>
+		                                                            <?php /*?>
+		                                                            <td class="text-left">
+		                                                                <input type="text" class="form-control" {{ $disableForm }} name="edit_uk_box_pallet_{{ $usWarehouseToUkWarehouseDetailId }}" value="{{ (!empty($usWarehouseToUkWarehouseDetail->v_uk_box_pallet) ? $usWarehouseToUkWarehouseDetail->v_uk_box_pallet  :'') }}">
+		                                                            </td>
+		                                                            <?php */?>
+		                                                            <td class="text-left"><input type="text" class="form-control date-format" {{ $disableForm }} name="edit_warehouse_booking_date_{{ $usWarehouseToUkWarehouseDetailId }}" value="{{ (!empty($usWarehouseToUkWarehouseDetail->dt_booking_date) ? clientDate($usWarehouseToUkWarehouseDetail->dt_booking_date)  :'') }}"></td>
+																	<td class="text-left"><input type="text" class="form-control date-format" {{ $disableForm }} name="edit_warehouse_collection_date_{{ $usWarehouseToUkWarehouseDetailId }}" value="{{ (!empty($usWarehouseToUkWarehouseDetail->dt_collection_date) ? clientDate($usWarehouseToUkWarehouseDetail->dt_collection_date)  :'') }}"></td>
+																	<td class="text-left"><input type="text" {{ $disableForm }} name="edit_warehouse_delivery_date_{{ $usWarehouseToUkWarehouseDetailId }}" class="form-control date-format" value="{{ (!empty($usWarehouseToUkWarehouseDetail->dt_delivery_date) ? clientDate($usWarehouseToUkWarehouseDetail->dt_delivery_date)  :'') }}"></td>
+																	<td class="text-left"><textarea name="edit_warehouse_remarks_{{ $usWarehouseToUkWarehouseDetailId }}" {{ $disableForm }} class="form-control" rows="1">{{ (!empty($usWarehouseToUkWarehouseDetail->v_remarks) ? ($usWarehouseToUkWarehouseDetail->v_remarks)  :'') }}</textarea></td>
+																	<td class="text-left">
+      																 	 <select name="edit_twarehouse_box_pallet_type_{{ $usWarehouseToUkWarehouseDetailId }}" class="form-control uk-warehouse-type-row" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    @if(!empty($boxPalletTypeInfo))
+										                                     	@foreach($boxPalletTypeInfo as $key => $boxPalletType)
+										                                       		{{ $selected = ''}}
+										                                        	@if( (isset($usWarehouseToUkWarehouseDetail) ) && ($usWarehouseToUkWarehouseDetail->e_box_pallet_type == $key))
+										                                        		{{ $selected = "selected='selected'"}}
+										                                        	@endif
+										                                        	<option value='{{ $key }}' {{ $selected }}>{{ $boxPalletType }}</option>
+										                                       	@endforeach
+										                                 	@endif
+		
+		                                                                </select>
+      																</td>
+      																<td class="text-left"><input type="text" onkeyup="onlyDecimal(this)" name="edit_twarehouse_total_no_of_pallets_boxes_{{ $usWarehouseToUkWarehouseDetailId }}" {{ $disableForm }} class="form-control uk-warehouse-total-box-pallets-row" value="{{(!empty($usWarehouseToUkWarehouseDetail->i_total_no_of_pallets) ? ($usWarehouseToUkWarehouseDetail->i_total_no_of_pallets) :'') }}"></td>
+																	
+																	<td class="text-left"><input type="text" class="form-control uk-tracking-no-warehouse" name="edit_warehouse_tracking_no_{{ $usWarehouseToUkWarehouseDetailId }}" {{ ( (isset($usWarehouseToUkWarehouseDetailId) && (!empty($usWarehouseToUkWarehouseDetailId)) ) ? 'disabled' : '' ) }} {{ $disableForm }} value="{{ (!empty($recordInfo->v_tracking_no) ? ($recordInfo->v_tracking_no)  :'') }}"></td>
+																	<td class="text-left"><input type="text" class="form-control" name="edit_twarehouse_racking_link_{{ $usWarehouseToUkWarehouseDetailId }}" {{ $disableForm }} value="{{ (!empty($usWarehouseToUkWarehouseDetail->v_tracking_link) ? ($usWarehouseToUkWarehouseDetail->v_tracking_link)  :'') }}"></td>
+																	
+																	
+		                                                            <td class="text-left">
+		                                                            <?php if(empty($disableForm)){?>
+		                                                                <a title="{{ trans('messages.delete') }}" href="javascript:void(0);" class="btn btn-sm btn-danger mb-1" onclick="removeLogisticTableRrecord(this)"><i class="fa fa-trash fa-fw"></i></a>
+		                                                            <?php } ?>
+		                                                            </td>
+		                                                        </tr>
+                                                    			<?php 
+                                                    		}
+                                                    	} else {
+                                                    		if(!empty($disableForm)) {
+                                                    			?>
+                                                    			<tr>
+                                                    		    	<td colspan="8" class="text-center">{{ trans('messages.no-record-found')}}</td>
+                                                    		    </tr>
+                                                    			<?php 
+                                                    		} else {
+                                                    		?>
+		                                                        <tr>
+		                                                            <td class="table-index text-center">1</td>
+		                                                            <td class="text-left">
+		                                                                <input type="text" class="form-control invoice-no-ref-no-row amazon-shipment-id-status" {{ $disableForm }} name="invoice_no_ref_no_1" onchange="checkUniqueShipmentId(this)">
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="uk_account_1[]" class="form-control uk-account-row select2" multiple {{ $disableForm }}>
+		                                                                    <?php 
+		                                                                    if(!empty($companyMasterRecordDetails)){
+		                                                                    	foreach ($companyMasterRecordDetails as $companyMasterRecordDetail){
+		                                                                    		$compnayRecordDetailEncodedId = Wild_tiger::encode($companyMasterRecordDetail->i_id);
+		                                                                    		?>
+		                                                                    		<option value="{{ $compnayRecordDetailEncodedId }}">{{ (!empty($companyMasterRecordDetail->v_company_name) ? $companyMasterRecordDetail->v_company_name . (!empty($companyMasterRecordDetail->v_company_short_code) ? ' ('. $companyMasterRecordDetail->v_company_short_code . ')' : '' )  : '') }}</option>
+		                                                                    		<?php 
+		                                                                    	}
+		                                                                    }
+		                                                                    ?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="uk_from_warehouse_1" class="form-control uk-from-warehouse-row" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    <?php 
+									                                         if(!empty($amazonFromWarehouseDetails)){
+									                                         	foreach ($amazonFromWarehouseDetails as $amazonFromWarehouseDetail){
+									                                            	$amazonFromWarehouseEncodeId =  Wild_tiger::encode($amazonFromWarehouseDetail->i_id);
+									                                            	?>
+									                                            	<option value="{{ $amazonFromWarehouseEncodeId }}">{{ (!empty($amazonFromWarehouseDetail->v_warehouse_name) ? $amazonFromWarehouseDetail->v_warehouse_name . (!empty($amazonFromWarehouseDetail->v_warehouse_code) ? ' ('. $amazonFromWarehouseDetail->v_warehouse_code . ')' : '' ) : '') }}</option>
+									                                            	<?php 	
+									                                         	}
+									                                        }?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="uk_to_warehouse_1" class="form-control uk-to-warehouse-row" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    <?php 
+									                                         if(!empty($ukWarehouseDetails)){
+									                                         	foreach ($ukWarehouseDetails as $ukWarehouseDetail){
+									                                            	$uWwarehouseEncodeId =  Wild_tiger::encode($ukWarehouseDetail->i_id);
+									                                            	?>
+									                                            	<option value="{{ $uWwarehouseEncodeId }}">{{ (!empty($ukWarehouseDetail->v_warehouse_name) ? $ukWarehouseDetail->v_warehouse_name . (!empty($ukWarehouseDetail->v_warehouse_code) ? ' ('. $ukWarehouseDetail->v_warehouse_code . ')' : '' ) : '') }}</option>
+									                                            	<?php 	
+									                                         	}
+									                                        }?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <input type="text" class="form-control uk-unit-row" name="uk_unit_1" {{ $disableForm }}> 
+		                                                            </td>
+		                                                            <?php /*?>
+		                                                            <td class="text-left">
+		                                                                <input type="text" class="form-control" name="uk_box_pallet_1" {{ $disableForm }}>
+		                                                            </td>
+		                                                            <?php */ ?>
+		                                                            <td class="text-left"><input type="text" class="form-control date-format" {{ $disableForm }} name="warehouse_booking_date_1" ></td>
+																	<td class="text-left"><input type="text" class="form-control date-format" {{ $disableForm }} name="warehouse_collection_date_1"></td>
+																	<td class="text-left"><input type="text" {{ $disableForm }} name="warehouse_delivery_date_1" class="form-control date-format"></td>
+																	<td class="text-left"><textarea name="warehouse_remarks_1" {{ $disableForm }} class="form-control" rows="1"></textarea></td>
+																	<td class="text-left">
+      																 	 <select name="warehouse_box_pallet_type_1" class="form-control uk-warehouse-type-row" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    @if(!empty($boxPalletTypeInfo))
+										                                     	@foreach($boxPalletTypeInfo as $key => $boxPalletType)
+										                                        	<option value='{{ $key }}'>{{ $boxPalletType }}</option>
+										                                       	@endforeach
+										                                 	@endif
+		
+		                                                                </select>
+      																</td>
+      																<td class="text-left"><input type="text" onkeyup="onlyDecimal(this)" name="warehouse_total_no_of_pallets_boxes_1" {{ $disableForm }} class="form-control uk-warehouse-total-box-pallets-row"></td>
+		                                                           
+																	<td class="text-left"><input type="text" class="form-control uk-tracking-no-warehouse" name="warehouse_tracking_no_1" {{ $disableForm }}></td>
+																	<td class="text-left"><input type="text" class="form-control" name="warehouse_tracking_link_1" {{ $disableForm }}></td>
+																	<td class="text-left">
+		                                                            	<?php if(empty($disableForm )){?>
+		                                                                <a title="{{ trans('messages.delete') }}" href="javascript:void(0);" class="btn btn-sm btn-danger mb-1 d-none"><i class="fa fa-trash fa-fw"></i></a>
+		                                                                <?php } ?>
+		                                                            </td>
+		                                                        </tr>
+		                                                        <tr>
+		                                                            <td class="table-index text-center">2</td>
+		                                                            <td class="text-left">
+		                                                                <input type="text" class="form-control invoice-no-ref-no-row amazon-shipment-id-status" {{ $disableForm }} name="invoice_no_ref_no_2" onchange="checkUniqueShipmentId(this)">
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="uk_account_2[]" class="form-control uk-account-row select2" multiple {{ $disableForm }}>
+		                                                                    <?php 
+		                                                                    if(!empty($companyMasterRecordDetails)){
+		                                                                    	foreach ($companyMasterRecordDetails as $companyMasterRecordDetail){
+		                                                                    		$compnayRecordDetailEncodedId = Wild_tiger::encode($companyMasterRecordDetail->i_id);
+		                                                                    		?>
+		                                                                    		<option value="{{ $compnayRecordDetailEncodedId }}">{{ (!empty($companyMasterRecordDetail->v_company_name) ? $companyMasterRecordDetail->v_company_name  . (!empty($companyMasterRecordDetail->v_company_short_code) ? ' ('. $companyMasterRecordDetail->v_company_short_code . ')' : '' )  : '') }}</option>
+		                                                                    		<?php 
+		                                                                    	}
+		                                                                    }
+		                                                                    ?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="uk_from_warehouse_2" class="form-control uk-from-warehouse-row" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                   	<?php 
+									                                         if(!empty($amazonFromWarehouseDetails)){
+									                                         	foreach ($amazonFromWarehouseDetails as $amazonFromWarehouseDetail){
+									                                            	$amazonFromWarehouseEncodeId =  Wild_tiger::encode($amazonFromWarehouseDetail->i_id);
+									                                            	?>
+									                                            	<option value="{{ $amazonFromWarehouseEncodeId }}">{{ (!empty($amazonFromWarehouseDetail->v_warehouse_name) ? $amazonFromWarehouseDetail->v_warehouse_name  . (!empty($amazonFromWarehouseDetail->v_warehouse_code) ? ' ('. $amazonFromWarehouseDetail->v_warehouse_code . ')' : '' ) : '') }}</option>
+									                                            	<?php 	
+									                                         	}
+									                                        }?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <select name="uk_to_warehouse_2" class="form-control uk-to-warehouse-row" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    <?php 
+									                                         if(!empty($ukWarehouseDetails)){
+									                                         	foreach ($ukWarehouseDetails as $ukWarehouseDetail){
+									                                            	$uWwarehouseEncodeId =  Wild_tiger::encode($ukWarehouseDetail->i_id);
+									                                            	?>
+									                                            	<option value="{{ $uWwarehouseEncodeId }}">{{ (!empty($ukWarehouseDetail->v_warehouse_name) ? $ukWarehouseDetail->v_warehouse_name . (!empty($ukWarehouseDetail->v_warehouse_code) ? ' ('. $ukWarehouseDetail->v_warehouse_code . ')' : '' ) : '') }}</option>
+									                                            	<?php 	
+									                                         	}
+									                                        }?>
+		                                                                </select>
+		                                                            </td>
+		                                                            <td class="text-left">
+		                                                                <input type="text" class="form-control uk-unit-row" name="uk_unit_2" {{ $disableForm }}>
+		                                                            </td>
+		                                                           <?php /*?>
+		                                                            <td class="text-left">
+		                                                                <input type="text" class="form-control" name="uk_box_pallet_2" {{ $disableForm }}>
+		                                                            </td>
+		                                                            <?php */?>
+		                                                            <td class="text-left"><input type="text" class="form-control date-format" {{ $disableForm }} name="warehouse_booking_date_2" ></td>
+																	<td class="text-left"><input type="text" class="form-control date-format" {{ $disableForm }} name="warehouse_collection_date_2"></td>
+																	<td class="text-left"><input type="text" {{ $disableForm }} name="warehouse_delivery_date_2" class="form-control date-format"></td>
+																	<td class="text-left"><textarea name="warehouse_remarks_2" {{ $disableForm }} class="form-control" rows="1"></textarea></td>
+																	<td class="text-left">
+      																 	 <select name="warehouse_box_pallet_type_2" class="form-control uk-warehouse-type-row" {{ $disableForm }}>
+		                                                                    <option value="">{{ trans("messages.select") }}</option>
+		                                                                    @if(!empty($boxPalletTypeInfo))
+										                                     	@foreach($boxPalletTypeInfo as $key => $boxPalletType)
+										                                        	<option value='{{ $key }}'>{{ $boxPalletType }}</option>
+										                                       	@endforeach
+										                                 	@endif
+		
+		                                                                </select>
+      																</td>
+      																<td class="text-left"><input type="text" onkeyup="onlyDecimal(this)" name="warehouse_total_no_of_pallets_boxes_2" {{ $disableForm }} class="form-control uk-warehouse-total-box-pallets-row"></td>
+		                                                           
+																	<td class="text-left"><input type="text" class="form-control uk-tracking-no-warehouse" name="warehouse_tracking_no_2" {{ $disableForm }}></td>
+																	<td class="text-left"><input type="text" class="form-control" name="warehouse_tracking_link_2" {{ $disableForm }}></td>
+																	<td class="text-left">
+		                                                            	<?php if(empty($disableForm )){?>
+		                                                                <a title="{{ trans('messages.delete') }}" href="javascript:void(0);" class="btn btn-sm btn-danger mb-1" onclick="removeLogisticTableRrecord(this)"><i class="fa fa-trash fa-fw"></i></a>
+		                                                                <?php } ?>
+		                                                            </td>
+		                                                        </tr>
+                                                        <?php } 
+                                                    	}
+                                                    	?>
+                                                    </tbody>
+                                                </table>
+                                                <?php if(empty($disableForm)){?>
+                                                <button type="button" class="btn btn-sm bg-theme text-white add-new-row mb-3" title="{{ trans('messages.add-new') }}" onclick="addNewShipmentDetailsWarehouse(this)"><i class="fa fa-plus fa-fw"></i>{{ trans("messages.add-new") }}</button>
+                                                <?php } ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <?php /*?>
+							<div class="col-lg-3 col-md-6 col-sm-6">
+                                <div class="form-group">
+                                    <label class="control-label" for="box_pallet_type">{{ trans("messages.type") }}<span class="text-danger">*</span></label>
+                                    <select name="box_pallet_type" class="form-control" {{ $disableForm }}>
+                                        <option value="">{{ trans("messages.select") }}</option>
+                                        @if(!empty($boxPalletTypeInfo))
+	                                     	@foreach($boxPalletTypeInfo as $key => $boxPalletType)
+	                                       		{{ $selected = ''}}
+	                                        	@if( (isset($recordInfo) ) && ($recordInfo->e_box_pallet_type == $key))
+	                                        		{{ $selected = "selected='selected'"}}
+	                                        	@endif
+	                                        	<option value='{{ $key }}' {{ $selected }}>{{ $boxPalletType }}</option>
+	                                       	@endforeach
+	                                 	@endif
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-xl-2 col-md-4 col-sm-6">
+                                <div class="form-group">
+                                    <label for="total_no_of_pallets_boxes" class="control-label">{{ trans("messages.total-no-of-pallets") }}</label>
+                                    <input type="text" name="total_no_of_pallets_boxes" {{ $disableForm }} onkeyup="onlyDecimal(this)" class="form-control" placeholder="{{ trans('messages.total-no-of-pallets') }}" value="{{ old('total_no_of_pallets_boxes', ( (isset($recordInfo) && (!empty($recordInfo->i_total_no_of_pallets))) ? ( $recordInfo->i_total_no_of_pallets) : '' ))}}">
+                                </div>
+                            </div>
+                            <?php */?>
+                            <?php /*?>
+                            <div class="col-xl-2 col-md-4 col-sm-6">
+                                <div class="form-group">
+                                    <label for="tracking_no" class="control-label">{{ trans("messages.tracking-no") }}<span class="text-danger">*</span></label>
+                                    <input type="text" name="tracking_no" {{ $disableForm }} class="form-control" placeholder="{{ trans('messages.tracking-no') }}" value="{{ old('tracking_no', ( (isset($recordInfo) && (!empty($recordInfo->v_tracking_no))) ? ( $recordInfo->v_tracking_no) : '' ))}}">
+                                </div>
+                            </div>
+
+                            <div class="col-xl-2 col-md-4 col-sm-6">
+                                <div class="form-group">
+                                    <label for="tracking_link" class="control-label">{{ trans("messages.tracking-link") }}</label>
+                                    <input type="text" name="tracking_link" {{ $disableForm }} class="form-control" placeholder="{{ trans('messages.tracking-link') }}" value="{{ old('tracking_link', ( (isset($recordInfo) && (!empty($recordInfo->v_tracking_link))) ? ( $recordInfo->v_tracking_link) : '' ))}}">
+                                </div>
+                            </div>
+                            
+                            <div class="col-xl-2 col-md-4 col-sm-6 amazon-appointment-date-record" {{  ( isset($recordInfo) && ($recordInfo->e_to_location == config("constants.AMAZON_FBA_SHEET")) ? "" : "style=display:none")}}>
+                                <div class="form-group">
+                                    <label for="amazon_appointment_date" class="control-label">{{ trans("messages.amazon-appointment-date") }}</label>
+                                    <input type="text" name="amazon_appointment_date"  {{ $disableForm }} class="form-control date-format" placeholder="{{ trans('messages.amazon-appointment-date') }}" value="{{ old('amazon_appointment_date', ( (isset($recordInfo) && (!empty($recordInfo->dt_amazon_appointment_date))) ? clientDate( $recordInfo->dt_amazon_appointment_date) : '' ))}}">
+                                </div>
+                            </div>
+                            <div class="col-xl-2 col-md-4 col-sm-6 amazon-appointment-id-record" {{  ( isset($recordInfo) && ($recordInfo->e_to_location == config("constants.AMAZON_FBA_SHEET")) ? "" : "style=display:none") }}>
+                                <div class="form-group">
+                                    <label for="amazon_appointment_id" class="control-label">{{ trans("messages.amazon-appointment-id") }}</label>
+                                    <input type="text" name="amazon_appointment_id" {{ $disableForm }} class="form-control" placeholder="{{ trans('messages.amazon-appointment-id') }}" value="{{ old('amazon_appointment_id', ( (isset($recordInfo) && (!empty($recordInfo->v_amazon_appointment_id))) ? ( $recordInfo->v_amazon_appointment_id) : '' ))}}">
+                                </div>
+                            </div>
+                            <?php */?>
+                        </div>
+                    </div>
+
+                    <div id="documents">
+                        <h4 class="title-goods"><i class="fa fa-file list-icon mr-2"></i> {{ trans("messages.documents") }}</h4>
+                        <div class="card-body pb-0">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="form-group pb-3 pt-3">
+                                        <div class="card shadow-none border">
+                                            <div class="card-header">
+                                                <span class="partner-tilte">
+                                                    {{ trans("messages.attach-documents") }}
+                                                </span>
+                                            </div>
+                                            <div class="card-body logistic-partner">
+                                                <div class="table-responsive">
+                                                    <table class="table table-hover table-bordered table-sm pb-4">
+                                                        <thead>
+                                                            <tr class="text-center">
+                                                                <th style="max-width:70px;min-width:70px;">{{ trans("messages.sr-no") }}</th>
+                                                                <th style="max-width:250px;min-width:200px;">{{ trans("messages.type") }} <span class="text-danger">*</span></th>
+                                                                <th style="max-width:250px;min-width:250px;">{{ trans("messages.documents") }} </th>
+                                                                <th style="max-width:250px;min-width:200px;">{{ trans("messages.remarks") }} </th>
+                                                                <th style="width:70px;min-width:70px;">{{ trans("messages.view") }}</th>
+                                                                <th style="width:70px;min-width:70px;">{{ trans("messages.action") }}</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody class="agent-to-warehouse-document-tbody">
+	                                                        <?php 
+	                                                    	if(!empty($recordInfo->documentInfo) && count($recordInfo->documentInfo) > 0){
+	                                                    		foreach ($recordInfo->documentInfo as $countKey => $documentDetail){
+	                                                    			$documentDetailId = (!empty($documentDetail->i_id) ? $documentDetail->i_id :'');
+	                                                    			$columIndex  = ( $countKey +  1 );
+	                                                    			?>
+	                                                    			<tr>
+		                                                                <td class="table-index text-center" style="width:70px;min-width:70px;">{{ $columIndex }}</td>
+		                                                                <td class="text-left">
+		                                                                    <select name="edit_type_{{ $documentDetailId }}" class="form-control warehouse-document-type" {{ $documentForm }}>
+		                                                                        <option value="">{{ trans("messages.select") }}</option>
+		                                                                        <?php 
+		                                                                        if(!empty($documentTypeRecordDetails)){
+		                                                                        	foreach ($documentTypeRecordDetails as $documentTypeRecordDetail){
+		                                                                        		$documentTypeRecordDetailId = Wild_tiger::encode($documentTypeRecordDetail->i_id);
+		                                                                        		$selected = '';
+		                                                                        		if( isset($documentDetail->i_document_type_id) && ( $documentDetail->i_document_type_id == $documentTypeRecordDetail->i_id ) ){
+		                                                                        			$selected = "selected='selected'";
+		                                                                        		}
+		                                                                        		?>
+		                                                                        		<option value="{{ $documentTypeRecordDetailId }}" {{ $selected }}>{{(!empty($documentTypeRecordDetail->v_document_type_name) ? $documentTypeRecordDetail->v_document_type_name : '')}}</option>
+		                                                                        		<?php 
+		                                                                        	}
+		                                                                        }
+		                                                                        ?>
+		                                                                    </select>
+		                                                                </td>
+		                                                                <?php $documentFiles = (json_decode($documentDetail->v_document_file_path)); ?>
+		                                                                <td class="text-left">
+		                                                                    <div class="custom-file">
+		                                                                        <input type="file" class="custom-file-input warehouse-document-file" {{ $documentForm }} id="document_{{ $documentDetailId }}" name="edit_file_{{ $documentDetailId }}[]" multiple  onchange="validFile(this,'pdf_doc_jpg_png_jpeg_xls')">
+		                                                                        <label class="custom-file-label" for="document_{{ $documentDetailId }}">{{ (!empty($documentFiles) ? ( count($documentFiles) > 1 ? trans('messages.multiple-files') : ( isset($documentFiles[0]) ? basename($documentFiles[0]) : '' ) )  : trans('messages.choose-file') ) }}</label>
+		                                                                    </div>
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" class="form-control" {{ $documentForm }} name="edit_remarks_{{ $documentDetailId }}" value="<?php echo (isset($documentDetail->v_document_remark) ? $documentDetail->v_document_remark : '' ); ?>">
+		                                                                </td>
+		                                                                <td class="actions-col">
+	                                                                	<?php 
+	                                                                	if(!empty($documentFiles)){
+		                                                                	foreach ($documentFiles as $documentFile){
+		                                                                		$imagePath = (config('constants.FILE_STORAGE_URL_PATH').$documentFile);
+		                                                                	?>
+		                                                                	<div class="download-link-items">
+			                                                                  <?php if(empty($documentForm)){?>
+			                                                                  <a title="{{trans('messages.remove')}}" href="javascript:void(0);" data-file-name="{{ basename($imagePath) }}" onclick="removeUploadedFile(this);" data-record-id="{{ $documentDetailId }}" data-field-name="document" class="close-icon"><i class="fa fa-times "></i></a>
+			                                                                  <?php } ?>
+			                                                                  <a title="{{ basename($imagePath) }}" href="{{ $imagePath }}" target="_blank" class="btn btn-sm btn-danger mb-1 download-icon-items"><i class="fa fa-download"></i></a>
+			                                                                </div>
+	                                                                    	<?php 
+		                                                                	}
+	                                                                	}?>
+		                                                                </td>
+		                                                                <td style="width:70px;min-width:70px;">
+		                                                                <?php if(empty($documentForm)){?>	
+		                                                                <button type="button" class="btn btn-sm btn-danger m-auto d-table" onclick="removeLogisticTableRrecord(this)"><i class="fa fa-trash fa-fw"></i></button>
+		                                                                <?php } ?>
+		                                                                </td>
+		                                                            </tr>
+	                                                    			<?php 
+	                                                    		}
+	                                                    	} else { 
+	                                                    		if(!empty($documentForm)) {
+	                                                    			?>
+                                                    				<tr>
+                                                    					<td colspan="6" class="text-center">{{ trans('messages.no-record-found')}}</td>
+                                                    				</tr>
+                                                    				<?php 
+                                                    			} else {
+	                                                    			?>
+		                                                            <tr>
+		                                                                <td class="table-index text-center" style="width:70px;min-width:70px;">1</td>
+		                                                                <td class="text-left">
+		                                                                    <select name="type_1" class="form-control warehouse-document-type" {{ $documentForm }}>
+		                                                                        <option value="">{{ trans("messages.select") }}</option>
+		                                                                        <?php 
+		                                                                        if(!empty($documentTypeRecordDetails)){
+		                                                                        	foreach ($documentTypeRecordDetails as $documentTypeRecordDetail){
+		                                                                        		$documentTypeRecordDetailId = Wild_tiger::encode($documentTypeRecordDetail->i_id);
+		                                                                        		?>
+		                                                                        		<option value="{{ $documentTypeRecordDetailId }}">{{(!empty($documentTypeRecordDetail->v_document_type_name) ? $documentTypeRecordDetail->v_document_type_name : '')}}</option>
+		                                                                        		<?php 
+		                                                                        	}
+		                                                                        }
+		                                                                        ?>
+		                                                                    </select>
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <div class="custom-file">
+		                                                                        <input type="file" class="custom-file-input warehouse-document-file" {{ $documentForm }} id="document_1" name="file_1[]" multiple  onchange="validFile(this,'pdf_doc_jpg_png_jpeg_xls')">
+		                                                                        <label class="custom-file-label" for="document_1">{{ trans('messages.choose-file') }}</label>
+		                                                                    </div>
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" class="form-control" name="remarks_1" {{ $documentForm }}>
+		                                                                </td>
+		                                                                <td class="actions-col"></td>
+		                                                                <td style="width:70px;min-width:70px;"></td>
+		                                                            </tr>
+		                                                            <tr>
+		                                                                <td class="table-index text-center" style="width:70px;min-width:70px;">2</td>
+		                                                                <td class="text-left">
+		                                                                    <select name="type_2" class="form-control warehouse-document-type" {{ $documentForm }}>
+		                                                                        <option value="">{{ trans("messages.select") }}</option>
+		                                                                        <?php 
+		                                                                        if(!empty($documentTypeRecordDetails)){
+		                                                                        	foreach ($documentTypeRecordDetails as $documentTypeRecordDetail){
+		                                                                        		$documentTypeRecordDetailId = Wild_tiger::encode($documentTypeRecordDetail->i_id);
+		                                                                        		?>
+		                                                                        		<option value="{{ $documentTypeRecordDetailId }}">{{(!empty($documentTypeRecordDetail->v_document_type_name) ? $documentTypeRecordDetail->v_document_type_name : '')}}</option>
+		                                                                        		<?php 
+		                                                                        	}
+		                                                                        }
+		                                                                        ?>
+		                                                                    </select>
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <div class="custom-file">
+		                                                                        <input type="file" class="custom-file-input warehouse-document-file" {{ $documentForm }} id="document_2" name="file_2[]" multiple  onchange="validFile(this,'pdf_doc_jpg_png_jpeg_xls')">
+		                                                                        <label class="custom-file-label" for="document_2">{{ trans('messages.choose-file') }}</label>
+		                                                                    </div>
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" class="form-control" name="remarks_2" {{ $documentForm }}>
+		                                                                </td>
+		                                                                <td class="actions-col"></td>
+		                                                                <td style="width:70px;min-width:70px;">
+		                                                                <?php if(empty($documentForm)){?>
+		                                                                <button type="button" class="btn btn-sm btn-danger m-auto d-table" onclick="removeLogisticTableRrecord(this)"><i class="fa fa-trash fa-fw"></i></button>
+		                                                                <?php } ?>
+		                                                                </td>
+		                                                            </tr>
+	                                                            <?php 
+                                                    			}
+	                                                    	}?>
+                                                        </tbody>
+                                                    </table>
+                                                    <?php if(empty($documentForm)){?>
+                                                    	<button type="button" class="btn btn-sm bg-theme text-white add-new-row" title="{{ trans('messages.add-new') }}" onclick="addNewDocumentRow(this)"><i class="fa fa-plus fa-fw"></i>{{ trans("messages.add-new") }}</button>
+                                                    <?php } ?>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="transporter">
+                        <h4 class="title-goods"><i class="fa fa-file-invoice mr-2"></i> {{ trans("messages.transporter-invoice") }}</h4>
+                        <div class="card-body pb-0">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="form-group pb-3 pt-3">
+                                        <div class="card shadow-none border">
+                                            <div class="card-body logistic-partner">
+                                                <div class="table-responsive">
+                                                    <table class="table table-hover table-bordered table-sm pb-4">
+                                                        <thead>
+                                                            <tr class="text-center">
+                                                                <th style="width:70px;min-width:70px;">{{ trans("messages.sr-no") }}</th>
+                                                                <th class="text-left" style="width:240px;min-width:240px;">{{ trans("messages.name") }} <span class="text-danger">*</span></th>
+                                                                <th class="text-left" style="width:120px;min-width:120px;">{{ trans("messages.inv-no") }} <span class="text-danger">*</span></th>
+                                                                <th class="text-left" style="width:120px;min-width:120px;">{{ trans("messages.freight") }}</th>
+                                                                <th class="text-left" style="width:120px;min-width:120px;">{{ trans("messages.custom") }}</th>
+                                                                <th class="text-left" style="width:120px;min-width:120px;">{{ trans("messages.duty") }}</th>
+                                                                <th class="text-left" style="width:120px;min-width:120px;">{{ trans("messages.other") }}</th>
+                                                                <th class="text-left" style="width:120px;min-width:120px;">{{ trans("messages.vat") }}</th>
+                                                                <th class="text-left" style="width:180px;min-width:180px;">{{ trans("messages.total") }}</th>
+                                                                <th class="text-left" style="width:110px;min-width:110px;">{{ trans("messages.cov-rate") }}</th>
+                                                                <th class="text-left" style="width:100px;min-width:100px;">{{ trans("messages.final-total-usd") }}</th>
+                                                                <th class="text-left" style="width:250px;min-width:250px;">{{ trans("messages.attach-documents") }}</th>
+                                                                <th class="text-center" style="width:80px;min-width:80px;">{{ trans("messages.documents") }}</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody class="agent-to-warehouse-transport-tbody">
+                                                        <?php 
+	                                                    	if(!empty($recordInfo->invoiceInfo) && count($recordInfo->invoiceInfo) > 0){
+	                                                    		foreach ($recordInfo->invoiceInfo as $countKey => $invoiceTranseportDetail){
+	                                                    			$invoiceTranseportDetailId = (!empty($invoiceTranseportDetail->i_id) ? $invoiceTranseportDetail->i_id :'');
+	                                                    			$columIndex  = ( $countKey +  1 );
+	                                                    			?>
+	                                                    			<tr>
+		                                                                <td class="table-index">{{ $columIndex }}</td>
+		                                                                <td class="text-left">
+		                                                                    <select name="edit_name_{{ $invoiceTranseportDetailId }}" {{ $documentForm }} class="form-control agent-warehouse-transporter-name select2">
+											                                	<option value="">{{ trans("messages.select") }}</option>
+										                                        <?php 
+										                                        if(!empty($logisticPartnerDetails)){
+										                                        	foreach ($logisticPartnerDetails as $logisticPartnerDetail){
+										                                        		$encodeLogisticPartnerId = Wild_tiger::encode($logisticPartnerDetail->i_id);
+										                                        		$selected = '';
+										                                        		if( isset($invoiceTranseportDetail->i_logistic_partner_master_id) && ( $invoiceTranseportDetail->i_logistic_partner_master_id == $logisticPartnerDetail->i_id ) ){
+										                                        			$selected = "selected='selected'";
+										                                        		}
+										                                        		?>
+										                                        		<option value="{{ $encodeLogisticPartnerId }}" {{ $selected}}>{{  (!empty($logisticPartnerDetail->v_logistic_partner_name) ? $logisticPartnerDetail->v_logistic_partner_name : '' ) }}</option>
+										                                        		<?php 
+										                                        	}
+										                                        }
+										                                        ?>
+											                                </select>
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" {{ $documentForm }} class="form-control agent-warehouse-transporter-inv-no" name="edit_inv_no_{{ $invoiceTranseportDetailId }}" placeholder="{{ trans('messages.inv-no') }}" value="{{ (!empty($invoiceTranseportDetail->v_invoice_no) ? $invoiceTranseportDetail->v_invoice_no :'') }}">
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" {{ $documentForm }} class="form-control agent-to-warehouse-freight" name="edit_freight_{{ $invoiceTranseportDetailId }}" placeholder="{{ trans('messages.freight') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)" value="{{ (!empty($invoiceTranseportDetail->d_freight_charge) ? $invoiceTranseportDetail->d_freight_charge :'') }}">
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" {{ $documentForm }} class="form-control agent-to-warehouse-custom" name="edit_custom_{{ $invoiceTranseportDetailId }}" placeholder="{{ trans('messages.custom') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)" value="{{ (!empty($invoiceTranseportDetail->d_custom_charge) ? $invoiceTranseportDetail->d_custom_charge :'') }}">
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" {{ $documentForm }} class="form-control agent-to-warehouse-duty" name="edit_duty_{{ $invoiceTranseportDetailId }}" placeholder="{{ trans('messages.duty') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)" value="{{ (!empty($invoiceTranseportDetail->d_duty_charge) ? $invoiceTranseportDetail->d_duty_charge :'') }}">
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" {{ $documentForm }} class="form-control agent-to-warehouse-other" name="edit_other_{{ $invoiceTranseportDetailId }}" placeholder="{{ trans('messages.other') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)" value="{{ (!empty($invoiceTranseportDetail->d_other_charge) ? $invoiceTranseportDetail->d_other_charge :'') }}">
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" {{ $documentForm }} class="form-control agent-to-warehouse-vat" name="edit_vat_{{ $invoiceTranseportDetailId }}" placeholder="{{ trans('messages.vat') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)" value="{{ (!empty($invoiceTranseportDetail->d_vat_charge) ? $invoiceTranseportDetail->d_vat_charge :'') }}">
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <div class="input-group align-items-center flex-nowrap">
+		                                                                        <label class="mb-0" for="">{{ (!empty($invoiceTranseportDetail->d_total_charge) ? $invoiceTranseportDetail->d_total_charge :'') }}</label>
+		                                                                        <div class="input-group-prepend">
+		                                                                            <select class="form-control ml-2" {{ $documentForm }} name="edit_currency_id_{{ $invoiceTranseportDetailId }}">
+		                                                                                <option selected value="">{{ trans('messages.currency')}}</option>
+		                                                                                <?php 
+		                                                                                if(!empty($currencyRecordDetails)){
+		                                                                                	foreach ($currencyRecordDetails as $currencyRecordDetail){
+		                                                                                		$currencyMasterDetailId = Wild_tiger::encode($currencyRecordDetail->i_id);
+		                                                                                		$selected = '';
+		                                                                                		if( isset($invoiceTranseportDetail->i_invoice_currency_id) && ( $invoiceTranseportDetail->i_invoice_currency_id == $currencyRecordDetail->i_id ) ){
+		                                                                                			$selected = "selected='selected'";
+		                                                                                		}
+		                                                                                		?>
+		                                                                                		<option value="{{ $currencyMasterDetailId }}" {{ $selected }}>{{(!empty($currencyRecordDetail->v_currency_code) ? $currencyRecordDetail->v_currency_code : '') }}</option>
+		                                                                                		<?php 
+		                                                                                	}
+		                                                                                }
+		                                                                                ?>
+		                                                                            </select>
+		                                                                        </div>
+		
+		                                                                    </div>
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" {{ $documentForm }} class="form-control agent-to-warehouse-con-rate" name="edit_cov_rate_{{ $invoiceTranseportDetailId }}" placeholder="{{ trans('messages.cov-rate') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)" value="{{ (!empty($invoiceTranseportDetail->d_conversion_rate) ? $invoiceTranseportDetail->d_conversion_rate :'') }}">
+		                                                                </td>
+		                                                                <td class="text-left"><span class="agent-warehouse-final-rate">{{ (!empty($invoiceTranseportDetail->d_final_charge) ? $invoiceTranseportDetail->d_final_charge :'') }}</span></td>
+		                                                                <?php $invoiceFiles = (json_decode($invoiceTranseportDetail->v_invoice_file_path)); ?>
+		                                                                <td class="text-left">
+		                                                                    <div class="custom-file">
+		                                                                        <input type="file" {{ $documentForm }} class="custom-file-input" id="invoice_{{ $invoiceTranseportDetailId }}" name="edit_invoice_file_{{ $invoiceTranseportDetailId }}[]" multiple onchange="validFile(this,'pdf_doc_jpg_png_jpeg_xls')">
+		                                                                        <label class="custom-file-label" for="invoice_{{ $invoiceTranseportDetailId }}">{{ (!empty($invoiceFiles) ? ( count($invoiceFiles) > 1 ? trans('messages.multiple-files') : ( isset($invoiceFiles[0]) ? basename($invoiceFiles[0]) : '' ) )  : trans('messages.choose-file') ) }}</label>
+		                                                                    </div>
+		                                                                </td>
+		                                                                <td class="actions-col">
+		                                                                 <?php 
+		                                                                	if(!empty($invoiceFiles)){
+			                                                                	foreach ($invoiceFiles as $invoiceFile){
+			                                                                		$invoicePath = (config('constants.FILE_STORAGE_URL_PATH').$invoiceFile);
+			                                                                	?>
+			                                                                	<div class="download-link-items">
+		                                                                  			<?php if(empty($documentForm)){ ?>
+		                                                                  			<a title="{{trans('messages.remove')}}"  href="javascript:void(0);" data-file-name="{{ basename($invoicePath) }}" onclick="removeUploadedFile(this);" data-record-id="{{ $invoiceTranseportDetailId }}" data-field-name="invoice"  class="close-icon"><i class="fa fa-times "></i></a>
+		                                                                  			<?php } ?>
+		                                                                  			<a title="{{ basename($invoicePath) }}" href="{{ $invoicePath }}" target="_blank" class="btn btn-sm btn-danger mb-1 download-icon-items"><i class="fa fa-download"></i></a>
+		                                                                		</div>
+		                                                                    	
+		                                                                    	<?php 
+			                                                                	}
+		                                                                	}
+			                                                                ?>
+		                                                                </td>
+		                                                            </tr>
+	                                                    			<?php 
+	                                                    		}
+	                                                    	} else {
+	                                                    		if(!empty($documentForm)) {
+	                                                    			?>
+                                                    				<tr>
+                                                    					<td colspan="13" class="text-center">{{ trans('messages.no-record-found')}}</td>
+                                                    				</tr>
+                                                    		  		<?php 
+                                                    			} else {
+	                                                    			?>
+		                                                            <tr>
+		                                                                <td class="table-index">1</td>
+		                                                                <td class="text-left">
+		                                                                    <select name="name_1" class="form-control agent-warehouse-transporter-name select2" {{ $documentForm }}>
+											                                	<option value="">{{ trans("messages.select") }}</option>
+										                                        <?php 
+										                                        if(!empty($logisticPartnerDetails)){
+										                                        	foreach ($logisticPartnerDetails as $logisticPartnerDetail){
+										                                        		$encodeLogisticPartnerId = Wild_tiger::encode($logisticPartnerDetail->i_id);
+										                                        		?>
+										                                        		<option value="{{ $encodeLogisticPartnerId }}">{{  (!empty($logisticPartnerDetail->v_logistic_partner_name) ? $logisticPartnerDetail->v_logistic_partner_name : '' ) }}</option>
+										                                        		<?php 
+										                                        	}
+										                                        }
+										                                        ?>
+											                                </select>
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" {{ $documentForm }} class="form-control agent-warehouse-transporter-inv-no" name="inv_no_1" placeholder="{{ trans('messages.inv-no') }}">
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" {{ $documentForm }} class="form-control agent-to-warehouse-freight" name="freight_1" placeholder="{{ trans('messages.freight') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)">
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" {{ $documentForm }} class="form-control agent-to-warehouse-custom" name="custom_1" placeholder="{{ trans('messages.custom') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)">
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" {{ $documentForm }} class="form-control agent-to-warehouse-duty" name="duty_1" placeholder="{{ trans('messages.duty') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)">
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" {{ $documentForm }} class="form-control agent-to-warehouse-other" name="other_1" placeholder="{{ trans('messages.other') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)">
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" {{ $documentForm }} class="form-control agent-to-warehouse-vat" name="vat_1" placeholder="{{ trans('messages.vat') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)">
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <div class="input-group align-items-center flex-nowrap">
+		                                                                         <label class="mb-0" for=""><span class="agent-warehouse-total-value"></span></label>
+		                                                                        <div class="input-group-prepend">
+		                                                                            <select class="form-control ml-2" name="currency_id_1" {{ $documentForm }}>
+		                                                                                <option selected value="">{{ trans('messages.currency')}}</option>
+		                                                                                <?php 
+		                                                                                if(!empty($currencyRecordDetails)){
+		                                                                                	foreach ($currencyRecordDetails as $currencyRecordDetail){
+		                                                                                		$currencyMasterDetailId = Wild_tiger::encode($currencyRecordDetail->i_id);
+		                                                                                		?>
+		                                                                                		<option value="{{ $currencyMasterDetailId }}">{{(!empty($currencyRecordDetail->v_currency_code) ? $currencyRecordDetail->v_currency_code : '') }}</option>
+		                                                                                		<?php 
+		                                                                                	}
+		                                                                                }
+		                                                                                ?>
+		                                                                            </select>
+		                                                                        </div>
+		
+		                                                                    </div>
+		                                                                </td>
+		
+		                                                                <td class="text-left">
+		                                                                    <input type="text" class="form-control agent-to-warehouse-con-rate" {{ $documentForm }}  name="cov_rate_1" placeholder="{{ trans('messages.cov-rate') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)">
+		                                                                </td>
+		                                                                <td class="text-left"><span class="agent-warehouse-final-rate"></span></td>
+		                                                                <td class="text-left">
+		                                                                    <div class="custom-file">
+		                                                                        <input type="file" class="custom-file-input" id="invoice_1" {{ $documentForm }} name="invoice_file_1[]" multiple onchange="validFile(this,'pdf_doc_jpg_png_jpeg_xls')">
+		                                                                        <label class="custom-file-label" for="invoice_1">{{ trans('messages.choose-file') }}</label>
+		                                                                    </div>
+		                                                                </td>
+		                                                                <td class="actions-col"></td>
+		                                                            </tr>
+		                                                            <tr>
+		                                                                <td class="table-index">2</td>
+		                                                                <td class="text-left">
+		                                                                    <select name="name_2" class="form-control agent-warehouse-transporter-name select2" {{ $documentForm }}>
+											                                	<option value="">{{ trans("messages.select") }}</option>
+										                                        <?php 
+										                                        if(!empty($logisticPartnerDetails)){
+										                                        	foreach ($logisticPartnerDetails as $logisticPartnerDetail){
+										                                        		$encodeLogisticPartnerId = Wild_tiger::encode($logisticPartnerDetail->i_id);
+										                                        		?>
+										                                        		<option value="{{ $encodeLogisticPartnerId }}">{{  (!empty($logisticPartnerDetail->v_logistic_partner_name) ? $logisticPartnerDetail->v_logistic_partner_name : '' ) }}</option>
+										                                        		<?php 
+										                                        	}
+										                                        }
+										                                        ?>
+											                                </select>
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" {{ $documentForm }} class="form-control agent-warehouse-transporter-inv-no" name="inv_no_2" placeholder="{{ trans('messages.inv-no') }}">
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" {{ $documentForm }} class="form-control agent-to-warehouse-freight" name="freight_2" placeholder="{{ trans('messages.freight') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)">
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" {{ $documentForm }} class="form-control agent-to-warehouse-custom" name="custom_2" placeholder="{{ trans('messages.custom') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)">
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" {{ $documentForm }} class="form-control agent-to-warehouse-duty" name="duty_2" placeholder="{{ trans('messages.duty') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)">
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" {{ $documentForm }} class="form-control agent-to-warehouse-other" name="other_2" placeholder="{{ trans('messages.other') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)">
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" {{ $documentForm }} class="form-control agent-to-warehouse-vat" name="vat_2" placeholder="{{ trans('messages.vat') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)">
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <div class="input-group align-items-center flex-nowrap">
+		                                                                        <label class="mb-0" for=""><span class="agent-warehouse-total-value"></span></label>
+		                                                                        <div class="input-group-prepend">
+		                                                                            <select class="form-control ml-2" name="currency_id_2" {{ $documentForm }}>
+		                                                                                <option selected value="">{{ trans('messages.currency')}}</option>
+		                                                                                <?php 
+		                                                                                if(!empty($currencyRecordDetails)){
+		                                                                                	foreach ($currencyRecordDetails as $currencyRecordDetail){
+		                                                                                		$currencyMasterDetailId = Wild_tiger::encode($currencyRecordDetail->i_id);
+		                                                                                		?>
+		                                                                                		<option value="{{ $currencyMasterDetailId }}">{{(!empty($currencyRecordDetail->v_currency_code) ? $currencyRecordDetail->v_currency_code : '') }}</option>
+		                                                                                		<?php 
+		                                                                                	}
+		                                                                                }
+		                                                                                ?>
+		                                                                            </select>
+		                                                                        </div>
+		
+		                                                                    </div>
+		                                                                </td>
+		                                                                <td class="text-left">
+		                                                                    <input type="text" {{ $documentForm }} class="form-control agent-to-warehouse-con-rate" name="cov_rate_2" placeholder="{{ trans('messages.cov-rate') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)">
+		                                                                </td>
+		                                                                <td class="text-left"><span class="agent-warehouse-final-rate"></span></td>
+		                                                                <td class="text-left">
+		                                                                    <div class="custom-file">
+		                                                                        <input type="file" {{ $documentForm }} class="custom-file-input" id="invoice_2" name="invoice_file_2[]" multiple onchange="validFile(this,'pdf_doc_jpg_png_jpeg_xls')">
+		                                                                        <label class="custom-file-label" for="invoice_2">{{ trans('messages.choose-file') }}</label>
+		                                                                    </div>
+		                                                                </td>
+		                                                                <td class="actions-col"></td>
+		                                                            </tr>
+	                                                          <?php 
+                                                    			}
+	                                                    	} ?>
+                                                        </tbody>
+                                                    </table>
+                                                     <?php if(empty($documentForm)){?>
+                                                    	<button type="button" class="btn btn-sm bg-theme text-white add-new-row mb-3" title="{{ trans('messages.add-new') }}" onclick="addNewInvoiceRow(this)"><i class="fa fa-plus fa-fw"></i>{{ trans("messages.add-new") }}</button>
+                                                    	<?php } ?>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="status">
+                        <h4 class="title-goods"><i class="fab fa-stack-overflow mr-2"></i> {{ trans("messages.status") }}</h4>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-xl-3 col-lg-4 col-sm-6">
+                                    <div class="form-group">
+                                        <label class="control-label" for="status">{{ trans("messages.status") }}<span class="text-danger">*</span></label>
+ 										<?php ## view time a disabled aavu joi and role admin hoi to disabled na avu joi ana mate ni conditon .?>
+                                        <select name="status" class="form-control" {{ $statusDisableForm  }}>
+                                            <option value="">{{ trans("messages.select") }}</option>
+                                            <?php 
+									        if(!empty($statusMasterRecordDetails)){
+									        	foreach ($statusMasterRecordDetails as $statusMasterRecordDetail){
+									           		$encoderId  = Wild_tiger::encode($statusMasterRecordDetail->i_id);
+									           		$selected = '';
+									           		if(isset($recordInfo) && ($recordInfo->i_status_id == $statusMasterRecordDetail->i_id ) ){
+									           			$selected = "selected='selected'";
+									           		}
+									           		?>
+									             	<option value="{{ $encoderId }}" {{ $selected }} data-status-id="{{ $statusMasterRecordDetail->i_id }}">{{ (!empty($statusMasterRecordDetail->v_status) ? $statusMasterRecordDetail->v_status : '' ) }}</option>
+									              	<?php 
+									           	}
+									        } 
+									        ?>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-sm-6">
+                                    <div class="form-group">
+                                        <label for="status_comments" class="control-label">{{ trans("messages.status-comments") }}</label>
+                                        <input type="text" {{ $documentForm  }} name="status_comments" class="form-control" placeholder="{{ trans('messages.status-comments') }}" value="{{ old('status_comments', ( (isset($recordInfo) && (!empty($recordInfo->v_status_comment))) ? ( $recordInfo->v_status_comment) : '' ))}}">
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-12 submit-sticky">
+                    <?php //if(empty($documentForm)){?>
+	                    <?php if( isset($recordInfo) && ( $recordInfo->i_id > 0 ) ) { ?>
+	                    		<input type="hidden" name="record_id" value="{{ Wild_tiger::encode($recordInfo->i_id) }}">
+	                    		<?php ## view time a updatebutton na aavu joi and role admin hoi to avu joi ana mate ni conditon .?>
+	                    		<?php if( empty($statusDisableForm) ) {?>
+	                    			<button type="submit" class="btn btn bg-theme text-white btn-wide" title="{{ trans('messages.update') }}">{{ trans("messages.update") }}</button>
+	                    		<?php } ?>
+	                     <?php } else { ?>
+	                        	<button type="submit" class="btn btn bg-theme text-white btn-wide" title="{{ trans('messages.submit') }}">{{ trans("messages.submit") }}</button>
+	                    <?php } ?>
+                    <?php //}?>
+                        <a href="{{ config('constants.US_WAREHOUSE_TO_AMAZON_MASTER_URL') }}" class="btn btn-outline-secondary shadow-sm btn-wide" title="{{ trans('messages.cancel') }}">{{ trans("messages.cancel") }}</a>
+                    </div>
+                    <input type="hidden" name="us_warehouse_to_amazon_document_type_count" value="">
+                    <input type="hidden" name="us_warehouse_to_amazon_transporter_count" value="">
+                    <input type="hidden" name="us_warehouse_to_amazon_document_type_count" value="">
+                    <input type="hidden" name="us_warehouse_to_amazon_shipment_amazon_count" value="">
+                    <input type="hidden" name="us_warehouse_to_amazon_shipment_customer_count" value="">
+                    <input type="hidden" name="us_warehouse_to_amazon_shipment_ukwarehouse_count" value="">
+                {!! Form::close() !!}
+            </div>
+            
+        </div>
+    </section>
+</main>
+<script>
+//var unique_shipment_id = true;
+    $("#add-us-warehouse-to-amazon-form").validate({
+        errorClass: "invalid-input",
+        rules: {
+            way_of_transport: {
+                required: function(element){
+	   		    	return ($.trim($('[name="to"]').val()) != '' && $.trim($('[name="to"]').val()) != null && $.trim($('[name="to"]').val()) == '{{ config("constants.AMAZON_FBA_SHEET") }}' ? false : true);
+	   			}
+            },
+            book_by: {
+            	required: function(element){
+	   		    	return ($.trim($('[name="to"]').val()) != '' && $.trim($('[name="to"]').val()) != null && $.trim($('[name="to"]').val()) == '{{ config("constants.AMAZON_FBA_SHEET") }}' ? false : true);
+	   			}
+            },
+            from: {
+                required: true
+            },
+            to: {
+                required: true
+            },
+            logistic_partner: {
+            	required: function(element){
+	   		    	return ($.trim($('[name="to"]').val()) != '' && $.trim($('[name="to"]').val()) != null && $.trim($('[name="to"]').val()) == '{{ config("constants.AMAZON_FBA_SHEET") }}' ? false : true);
+	   			}
+            },
+            /* booking_date: {
+                required: false,noSpace: true
+            },
+            tracking_no: {
+                required: false,noSpace: true
+            }, */
+            status: {
+                required: true
+            },
+            collection_date: {
+	   		    required: function(element){
+	   		    	return ( ($.trim($("[name='status']").find('option:selected').attr('data-status-id')) == '{{ config("constants.DELIVERED_STATUS_ID") }}') || ($.trim($("[name='status']").find('option:selected').attr('data-status-id')) == '{{ config("constants.DELIVERED_BUT_DOCUMENT_PENDING_STATUS_ID") }}') ? true : false ) 
+	   			},
+	   		    noSpace: true
+   	   	   },
+   	   	   delivery_date: {
+	   	   		required: function(element){
+	   	   			return ( ($.trim($("[name='status']").find('option:selected').attr('data-status-id')) == '{{ config("constants.DELIVERED_STATUS_ID") }}') || ($.trim($("[name='status']").find('option:selected').attr('data-status-id')) == '{{ config("constants.DELIVERED_BUT_DOCUMENT_PENDING_STATUS_ID") }}') ? true : false ) 
+	   			},
+	   		    noSpace: true
+	   	   },
+	   /* 	box_pallet_type:{
+            required: true,noSpace: true
+        }, */
+		   	
+
+        },
+        messages: {
+            way_of_transport: {
+                required: "{{ trans('messages.require-way-of-transport') }}"
+            },
+            book_by: {
+                required: "{{ trans('messages.require-book-by') }}"
+            },
+            from: {
+                required: "{{ trans('messages.require-from') }}"
+            },
+            to: {
+                required: "{{ trans('messages.require-to') }}"
+            },
+           
+            logistic_partner: {
+                required: "{{ trans('messages.require-logistic-partner') }}"
+            },
+            booking_date: {
+                required: "{{ trans('messages.require-booking-date') }}"
+            },
+            tracking_no: {
+                required: "{{ trans('messages.require-tracking-no') }}"
+            },
+           
+            status: {
+                required: "{{ trans('messages.require-status') }}"
+            },
+            collection_date:  {
+                required: "{{ trans('messages.require-collection-date') }}"
+            },
+            delivery_date:  {
+                required: "{{ trans('messages.require-delivery-date') }}"
+            },
+            box_pallet_type:  {
+                required: "{{ trans('messages.require-type') }}"
+            },
+            
+        },
+        submitHandler: function(form) {
+
+        	var shiment_to_selected_value = $.trim($("[name='to']").val());
+        	
+            if(shiment_to_selected_value !="" && shiment_to_selected_value != null){
+            	var unique_shipment_array = [];	
+     			switch(shiment_to_selected_value){
+     				case '{{ config("constants.AMAZON_FBA_SHEET")}}':
+     					var shipment_amazon_status = true;
+     		            var ref_amazon_status = false;
+     		            var account_amazon_status = false;
+     		            var from_warehouse_amazon_status = false;
+     		            var to_location_amazon_status = false;
+     		           	var product_amazon_status = false;
+     		            var sku_amazon_status = false;
+     		            var unit_amazon_status = false;
+     		           	var tracking_no_status = false;
+     		           	var amazon_type_status = false;
+     		           	var total_no_of_pallets_status = false;
+    		          	
+     		            
+     		            $('.shipment-details-amazon-tbody tr').each(function(){
+     		       			var shipment_amazon = $.trim($(this).find('.amazon-shipment-id-status').val());
+     		       			var ref_amazon = $.trim($(this).find('.ref-amazon-row').val());
+     		       			var account_amazon = $.trim($(this).find('.account-amazon-row').val());
+     		       			var from_warehouse_amazon = $.trim($(this).find('.from-warehouse-amazon-row').val());
+     		       			var to_location_amazon = $.trim($(this).find('.to-location-amazon-row').val());
+     		       			var product_amazon = $.trim($(this).find('.product-amazon-row').val());
+     		       			var sku_amazon = $.trim($(this).find('.sku-amazon-row').val());
+     		       			var unit_amazon = $.trim($(this).find('.unit-amazon-row').val());
+     		       			var tracking_no_amazon = $.trim($(this).find('.amazon-tracking-no-row').val());
+     		       			var amazon_box_pallet_type = $.trim($(this).find('.amazon-box-pallet-type-row').val());
+     		       			var amazon_total_no_of_pallets = $.trim($(this).find('.amazon-total-no-of-pallet-row').val());
+
+     		       			if(shipment_amazon != "" && shipment_amazon != null ){
+     		       				shipment_amazon_status = false;
+     							if( ( ref_amazon == "" || ref_amazon == null ) && (ref_amazon_status != true) ){
+     								$.trim($(this).find('.ref-amazon-row').focus());
+     								ref_amazon_status = true;
+     		                	}
+     							if( ( account_amazon == "" || account_amazon == null ) && ( ref_amazon_status != true && account_amazon_status != true ) ){
+     								$.trim($(this).find('.account-amazon-row').focus());
+     								account_amazon_status = true;
+     							}
+     							if( ( from_warehouse_amazon == "" || from_warehouse_amazon == null ) && ( ref_amazon_status != true && account_amazon_status != true && from_warehouse_amazon_status != true ) ){
+     								$.trim($(this).find('.from-warehouse-amazon-row').focus());
+     								from_warehouse_amazon_status = true;
+     							}
+     							if( ( to_location_amazon == "" || to_location_amazon == null ) && ( ref_amazon_status != true && account_amazon_status != true && from_warehouse_amazon_status != true && to_location_amazon_status != true) ){
+     								$.trim($(this).find('.to-location-amazon-row').focus());
+     								to_location_amazon_status = true;
+     							}
+     							if( ( product_amazon == "" || product_amazon == null ) && ( ref_amazon_status != true && account_amazon_status != true && from_warehouse_amazon_status != true && to_location_amazon_status != true && product_amazon_status != true) ){
+     								$.trim($(this).find('.product-amazon-row').focus());
+     								product_amazon_status = true;
+     							}
+     							if( ( sku_amazon == "" || sku_amazon == null ) && ( ref_amazon_status != true && account_amazon_status != true && from_warehouse_amazon_status != true && to_location_amazon_status != true && product_amazon_status != true && sku_amazon_status != true) ){
+     								$.trim($(this).find('.sku-amazon-row').focus());
+     								sku_amazon_status = true;
+     							}
+     							if( ( unit_amazon == "" || unit_amazon == null ) && ( ref_amazon_status != true && account_amazon_status != true && from_warehouse_amazon_status != true && to_location_amazon_status != true && product_amazon_status != true && sku_amazon_status != true && unit_amazon_status != true) ){
+     								$.trim($(this).find('.unit-amazon-row').focus());
+     								unit_amazon_status = true;
+     							}
+     							
+     							if( ( amazon_box_pallet_type == "" || amazon_box_pallet_type == null ) && ( ref_amazon_status != true && account_amazon_status != true && from_warehouse_amazon_status != true && to_location_amazon_status != true && product_amazon_status != true && sku_amazon_status != true && unit_amazon_status != true &&  amazon_type_status != true) ){
+     								$.trim($(this).find('.amazon-box-pallet-type-row').focus());
+     								amazon_type_status = true;
+     							}
+     							if( ( amazon_total_no_of_pallets == "" || amazon_total_no_of_pallets == null ) && ( ref_amazon_status != true && account_amazon_status != true && from_warehouse_amazon_status != true && to_location_amazon_status != true && product_amazon_status != true && sku_amazon_status != true && unit_amazon_status != true && amazon_type_status != true && total_no_of_pallets_status != true) ){
+     								$.trim($(this).find('.amazon-total-no-of-pallet-row').focus());
+     								total_no_of_pallets_status = true;
+     							}
+     							if( ( tracking_no_amazon == "" || tracking_no_amazon == null ) && ( ref_amazon_status != true && account_amazon_status != true && from_warehouse_amazon_status != true && to_location_amazon_status != true && product_amazon_status != true && sku_amazon_status != true && unit_amazon_status != true && amazon_type_status != true && total_no_of_pallets_status != true && tracking_no_status != true) ){
+     								$.trim($(this).find('.amazon-tracking-no-row').focus());
+     								tracking_no_status = true;
+     							}
+     							if( unique_shipment_id != false ){
+     								if( $.inArray( shipment_amazon ,unique_shipment_array  ) == -1 ){
+     									unique_shipment_array.push(shipment_amazon);
+     								} else {
+     									unique_shipment_id = false;
+     									$(this).find('.amazon-shipment-id-status').focus()
+     								}            		
+     			        		} 				
+     		       			}
+     		            });
+     		            if( unique_shipment_id != true ){
+     		        		alertifyMessage("error","{{ trans('messages.error-unique-shipment-id') }} ");
+     		        		return false;
+     		            }
+     		           	if( shipment_amazon_status != false ){
+     		        	  	$.trim($('.amazon-shipment-id-status:first').focus());
+     		        		alertifyMessage("error","{{ trans('messages.required-atleast-checkbox-selection') }} ");
+     		           		return false;
+     		          	}
+     		            if( ref_amazon_status != false ){
+     			         	alertifyMessage("error","{{ trans('messages.require-ref-id') }} ");
+     			            return false;
+     			        }
+     					if( account_amazon_status != false ){
+     				    	alertifyMessage("error","{{ trans('messages.require-account') }} ");
+     				     	return false;
+     				     }
+     					 if( from_warehouse_amazon_status != false ){
+     					 	alertifyMessage("error","{{ trans('messages.require-from-us-warehouse') }} ");
+     					  	return false;
+     					 }
+     					 if( to_location_amazon_status != false ){
+     						alertifyMessage("error","{{ trans('messages.require-to-amazon-location') }} ");
+     						return false;
+     					 }
+     					if( product_amazon_status != false ){
+     						alertifyMessage("error","{{ trans('messages.required-enter-field-validation', ['fieldName' => trans('messages.product')]) }} ");
+     						return false;
+     					 }
+     					 if( sku_amazon_status != false ){
+     						alertifyMessage("error","{{ trans('messages.require-sku') }} ");
+     						return false;
+     					 }
+     					 if( unit_amazon_status != false ){
+     						alertifyMessage("error","{{ trans('messages.require-unit') }} ");
+     						return false;
+     					}
+     					if( tracking_no_status != false ){
+      						alertifyMessage("error","{{ trans('messages.require-tracking-no') }} ");
+      						return false;
+      					}
+     					if( amazon_type_status != false ){
+      						alertifyMessage("error","{{ trans('messages.require-type') }} ");
+      						return false;
+      					}
+     					if( total_no_of_pallets_status != false ){
+      						alertifyMessage("error","{{ trans('messages.require-total-no-of-box-pallets') }} ");
+      						return false;
+      					}
+     					break;
+     				case '{{ config("constants.CUSTOMER_FBA_SHEET")}}':
+     					var invoice_no_customer_status = true;
+     		            var customer_name_status = false;
+     		            var customer_from_warehouse_status = false;
+     		            var to_customer_status = false;
+     		            var customer_unit_status = false;
+     		           	var customer_tracking_no_status = false;
+     		           	var customer_type_status = false;
+     		          	var customer_total_box_pallets_status = false;
+     		          
+     		            
+     					$('.shipment-details-customer-record-tbody tr').each(function(){
+     						var invoice_no_customer_value = $.trim($(this).find('.invoice-no-customer-record').val());
+     			            var customer_name_value = $.trim($(this).find('.customer-name-record').val());
+     			            var customer_from_warehouse_value = $.trim($(this).find('.customer-from-warehouse-record').val());
+     			            var to_customer_value = $.trim($(this).find('.to-customer-record').val());
+     			            var customer_unit_value = $.trim($(this).find('.customer-unit-record').val());
+     			           	var customer_tracking_no = $.trim($(this).find('.customer-tracking-no-record').val());
+     			           	var customer_type = $.trim($(this).find('.customer-box-pallets-row').val());
+    			           	var customer_total_no_box_pallets = $.trim($(this).find('.customer-total-no-of-box-pallets-row').val());
+     			           
+     			            if(invoice_no_customer_value != "" && invoice_no_customer_value != null ){
+     			            	invoice_no_customer_status = false;
+     							if( ( customer_name_value == "" || customer_name_value == null ) && (customer_name_status != true) ){
+     								$.trim($(this).find('.customer-name-record').focus());
+     								customer_name_status = true;
+     		                	}
+     							if( ( customer_from_warehouse_value == "" || customer_from_warehouse_value == null ) && ( customer_name_status != true && customer_from_warehouse_status != true ) ){
+     								$.trim($(this).find('.customer-from-warehouse-record').focus());
+     								customer_from_warehouse_status = true;
+     							}
+     							if( ( to_customer_value == "" || to_customer_value == null ) && ( customer_name_status != true && customer_from_warehouse_status != true && to_customer_status != true ) ){
+     								$.trim($(this).find('.to-customer-record').focus());
+     								to_customer_status = true;
+     							}
+     							if( ( customer_unit_value == "" || customer_unit_value == null ) && ( customer_name_status != true && customer_from_warehouse_status != true && to_customer_status != true && customer_unit_status != true) ){
+     								$.trim($(this).find('.customer-unit-record').focus());
+     								customer_unit_status = true;
+     							}
+     							
+     							if( ( customer_type == "" || customer_type == null ) && ( customer_name_status != true && customer_from_warehouse_status != true && to_customer_status != true && customer_unit_status != true && customer_type_status !=true) ){
+     								$.trim($(this).find('.customer-box-pallets-row').focus());
+     								customer_type_status = true;
+     							}	
+     							if( ( customer_total_no_box_pallets == "" || customer_total_no_box_pallets == null ) && ( customer_name_status != true && customer_from_warehouse_status != true && to_customer_status != true && customer_unit_status != true && customer_type_status != true && customer_total_box_pallets_status != true ) ){
+     								$.trim($(this).find('.customer-total-no-of-box-pallets-row').focus());
+     								customer_total_box_pallets_status = true;
+     							}
+     							if( ( customer_tracking_no == "" || customer_tracking_no == null ) && ( customer_name_status != true && customer_from_warehouse_status != true && to_customer_status != true && customer_unit_status != true && customer_type_status != true && customer_total_box_pallets_status != true && customer_tracking_no_status != true) ){
+     								$.trim($(this).find('.customer-tracking-no-record').focus());
+     								customer_tracking_no_status = true;
+     							}
+     							if( unique_shipment_id != false ){
+     								if( $.inArray( invoice_no_customer_value ,unique_shipment_array  ) == -1 ){
+     									unique_shipment_array.push(invoice_no_customer_value);
+     								} else {
+     									unique_shipment_id = false;
+     									$(this).find('.invoice-no-customer-record').focus()
+     								}            		
+     			        		} 			
+     		       			}
+     					}); 
+     					if( unique_shipment_id != true ){
+     		        		alertifyMessage("error","{{ trans('messages.error-unique-shipment-id') }} ");
+     		        		return false;
+     		            }
+     					if( invoice_no_customer_status != false ){
+     		            	$.trim($('.invoice-no-customer-record:first').focus());
+     		        		alertifyMessage("error","{{ trans('messages.required-atleast-checkbox-selection') }} ");
+     		           		return false;
+     		            }
+     					if( customer_name_status != false ){
+     				    	alertifyMessage("error","{{ trans('messages.require-customer-name') }} ");
+     				     	return false;
+     				     }
+     					if( customer_from_warehouse_status != false ){
+     						alertifyMessage("error","{{ trans('messages.require-from-us-warehouse') }} ");
+     					  	return false;
+     					}
+     					if( to_customer_status != false ){
+     						alertifyMessage("error","{{ trans('messages.require-to-customer-location') }} ");
+     						return false;
+     					}
+     					if( customer_unit_status != false ){
+     						alertifyMessage("error","{{ trans('messages.require-unit') }} ");
+     						return false;
+     					} 
+     					if( customer_tracking_no_status != false ){
+     						alertifyMessage("error","{{ trans('messages.require-tracking-no') }} ");
+     						return false;
+     					} 
+     					if( customer_type_status != false ){
+      						alertifyMessage("error","{{ trans('messages.require-type') }} ");
+      						return false;
+      					}
+     					if( customer_total_box_pallets_status != false ){
+      						alertifyMessage("error","{{ trans('messages.require-total-no-of-box-pallets') }} ");
+      						return false;
+      					}
+     		       		break;
+     				case '{{ config("constants.UK_WAREHOUSE_FBA_SHEET")}}':
+     				 	var invoice_no_ref_no_warehouse_status = true;
+     		            var uk_account_warehouse_status = false;
+     		            var uk_from_warehouse_status = false;
+     		            var uk_to_warehouse_status = false;
+     		            var uk_unit_warehouse_status = false;
+     		           	var uk_tracking_no_warehouse_status = false;
+     		           	var uk_warehouse_type_status = false;
+     		           	var uk_warehouse_total_box_pallets_status = false;
+     		           	
+     		            $('.shipment-details-uk-warehouse-tbody tr').each(function(){
+     		            	var invoice_no_ref_no_warehouse = $.trim($(this).find('.invoice-no-ref-no-row').val());
+     		            	var uk_account_warehouse = $.trim($(this).find('.uk-account-row').val());
+     		            	var uk_from_warehouse = $.trim($(this).find('.uk-from-warehouse-row').val());
+     		            	var uk_to_warehouse = $.trim($(this).find('.uk-to-warehouse-row').val());
+     		            	var uh_unit_warehouse = $.trim($(this).find('.uk-unit-row').val());
+     		            	var uk_tracking_no_warehouse = $.trim($(this).find('.uk-tracking-no-warehouse').val());
+     		            	var uk_warehouse_type = $.trim($(this).find('.uk-warehouse-type-row').val());
+     		            	var uk_warehouse_total_box_pallets = $.trim($(this).find('.uk-warehouse-total-box-pallets-row').val());
+
+     		            	if(invoice_no_ref_no_warehouse != "" && invoice_no_ref_no_warehouse != null ){
+     		            		invoice_no_ref_no_warehouse_status = false;
+     							if( ( uk_account_warehouse == "" || uk_account_warehouse == null ) && (uk_account_warehouse_status != true) ){
+     								$.trim($(this).find('.uk-account-row').focus());
+     								uk_account_warehouse_status = true;
+     		                	}
+     							if( ( uk_from_warehouse == "" || uk_from_warehouse == null ) && ( uk_account_warehouse_status != true && uk_from_warehouse_status != true ) ){
+     								$.trim($(this).find('.uk-from-warehouse-row').focus());
+     								uk_from_warehouse_status = true;
+     							}
+     							if( ( uk_to_warehouse == "" || uk_to_warehouse == null ) && ( uk_account_warehouse_status != true && uk_from_warehouse_status != true && uk_to_warehouse_status != true ) ){
+     								$.trim($(this).find('.uk-to-warehouse-row').focus());
+     								uk_to_warehouse_status = true;
+     							}
+     							if( ( uh_unit_warehouse == "" || uh_unit_warehouse == null ) && ( uk_account_warehouse_status != true && uk_from_warehouse_status != true && uk_to_warehouse_status != true && uk_unit_warehouse_status != true) ){
+     								$.trim($(this).find('.uk-unit-row').focus());
+     								uk_unit_warehouse_status = true;
+     							}
+     							if( ( uk_warehouse_type == "" || uk_warehouse_type == null ) && ( uk_account_warehouse_status != true && uk_from_warehouse_status != true && uk_to_warehouse_status != true && uk_unit_warehouse_status != true && uk_warehouse_type_status != true) ){
+     								$.trim($(this).find('.uk-warehouse-type-row').focus());
+     								uk_warehouse_type_status = true;
+     							}	
+     							if( ( uk_warehouse_total_box_pallets == "" || uk_warehouse_total_box_pallets == null ) && ( uk_account_warehouse_status != true && uk_from_warehouse_status != true && uk_to_warehouse_status != true && uk_unit_warehouse_status != true && uk_warehouse_type_status != true && uk_warehouse_total_box_pallets_status != true) ){
+     								$.trim($(this).find('.uk-warehouse-total-box-pallets-row').focus());
+     								uk_warehouse_total_box_pallets_status = true;
+     							}
+     							if( ( uk_tracking_no_warehouse == "" || uk_tracking_no_warehouse == null ) && ( uk_account_warehouse_status != true && uk_from_warehouse_status != true && uk_to_warehouse_status != true && uk_unit_warehouse_status != true && uk_warehouse_type_status != true && uk_warehouse_total_box_pallets_status != true && uk_tracking_no_warehouse_status != true) ){
+     								$.trim($(this).find('.uk-tracking-no-warehouse').focus());
+     								uk_tracking_no_warehouse_status = true;
+     							}		
+     							if( unique_shipment_id != false ){
+     								if( $.inArray( invoice_no_ref_no_warehouse ,unique_shipment_array  ) == -1 ){
+     									unique_shipment_array.push(invoice_no_ref_no_warehouse);
+     								} else {
+     									unique_shipment_id = false;
+     									$(this).find('.invoice-no-ref-no-row').focus()
+     								}            		
+     			        		} 		
+     		       			}
+     		            }); 
+     		            if( unique_shipment_id != true ){
+     		        		alertifyMessage("error","{{ trans('messages.error-unique-shipment-id') }} ");
+     		        		return false;
+     		            }
+     		           	if( invoice_no_ref_no_warehouse_status != false ){
+    		            	$.trim($('.invoice-no-ref-no-row:first').focus());
+    		        		alertifyMessage("error","{{ trans('messages.required-atleast-checkbox-selection') }} ");
+    		           		return false;
+    		            }
+     		            if( uk_account_warehouse_status != false ){
+     				    	alertifyMessage("error","{{ trans('messages.require-account') }} ");
+     				     	return false;
+     				     }
+     					 if( uk_from_warehouse_status != false ){
+     					 	alertifyMessage("error","{{ trans('messages.require-from-us-warehouse') }} ");
+     					  	return false;
+     					 }
+     					 if( uk_to_warehouse_status != false ){
+     						alertifyMessage("error","{{ trans('messages.require-to-uk-warehouse') }} ");
+     						return false;
+     					 }
+     					 if( uk_unit_warehouse_status != false ){
+     						alertifyMessage("error","{{ trans('messages.require-unit') }} ");
+     						return false;
+     					} 
+     					if( uk_tracking_no_warehouse_status != false ){
+       						alertifyMessage("error","{{ trans('messages.require-tracking-no') }} ");
+       						return false;
+       					}
+     					if( uk_warehouse_type_status != false ){
+      						alertifyMessage("error","{{ trans('messages.require-type') }} ");
+      						return false;
+      					}
+     					if( uk_warehouse_total_box_pallets_status != false ){
+      						alertifyMessage("error","{{ trans('messages.require-total-no-of-box-pallets') }} ");
+      						return false;
+      					}
+     		       		break;
+     			}
+     			
+            } 
+			var us_warehouse_type_status = false;
+	       	var us_warehouse_file_status = false;
+       		$('.agent-to-warehouse-document-tbody tr').each(function(){
+       			var us_warehouse_type = $.trim($(this).find('.warehouse-document-type').val());
+       			var us_warehouse_file_valid = $.trim($(this).find('.warehouse-document-file').attr('data-valid-file'));
+				if(us_warehouse_file_valid != "" && us_warehouse_file_valid != null && us_warehouse_file_valid == "{{ strtolower(config('constants.SELECTION_YES'))}}"){
+					
+        			if( ( us_warehouse_type == "" || us_warehouse_type == null ) && (us_warehouse_type_status != true) ){
+						$.trim($(this).find('.warehouse-document-type').focus());
+						us_warehouse_file_status = true;
+                	}
+        		}
+       		});
+       	 	
+       		if( us_warehouse_file_status != false ){
+        		alertifyMessage("error","{{ trans('messages.require-document-type') }} ");
+           		return false;
+            }
+            
+       		var us_warehouse_transporter_name_status = false;
+            var us_warehouse_transporter_inv_no_status = false;
+            $('.agent-to-warehouse-transport-tbody tr').each(function(){
+         		var us_warehouse_transporter_name = $.trim($(this).find('.agent-warehouse-transporter-name').val());
+         		var us_warehouse_transporter_inv_no = $.trim($(this).find('.agent-warehouse-transporter-inv-no').val());
+
+				if(us_warehouse_transporter_name != "" && us_warehouse_transporter_name != null){
+					us_warehouse_transporter_name_status = true;
+					if( ( us_warehouse_transporter_inv_no == "" || us_warehouse_transporter_inv_no == null ) && (us_warehouse_transporter_inv_no_status != true) ){
+						$.trim($(this).find('.agent-warehouse-transporter-inv-no').focus());
+						us_warehouse_transporter_inv_no_status = true;
+                	}
+         		} 
+         	});
+           
+            if( us_warehouse_transporter_inv_no_status != false ){
+         		alertifyMessage("error","{{ trans('messages.require-inv-no') }} ");
+            	return false;
+            }
+           
+		 		 	
+    		var confirm_box = "";
+        	var confirm_box_msg = "";
+        	<?php if( isset($recordInfo) && ( $recordInfo->i_id > 0 ) ) { ?>
+				confirm_box = "{{ trans('messages.update-us-warehouse-to-amazon') }}";
+				confirm_box_msg = "{{ trans ( 'messages.confirm-us-warehouse-to-amazon-update-msg') }}";
+
+			<?php }else{?>
+				confirm_box = "{{ trans('messages.add-us-warehouse-to-amazon-customer-uk-warehouse') }}";
+				confirm_box_msg = "{{ trans ( 'messages.confirm-us-warehouse-to-amazon-add-msg') }}";
+			<?php }?>
+			alertify.confirm(confirm_box,confirm_box_msg,function() {
+				$("[name='us_warehouse_to_amazon_document_type_count']").val(agent_warehouse_document_type_count);
+        		$("[name='us_warehouse_to_amazon_transporter_count']").val(agent_warehouse_transporter_count);
+        		$("[name='us_warehouse_to_amazon_shipment_amazon_count']").val(us_warehouse_to_amazon_shipment_amazon_count);
+        		$("[name='us_warehouse_to_amazon_shipment_customer_count']").val(us_warehouse_to_amazon_shipment_customer_count);
+        		$("[name='us_warehouse_to_amazon_shipment_ukwarehouse_count']").val(us_warehouse_to_amazon_shipment_ukwarehouse_count);
+        		$("[name='to']").prop('disabled', false);
+        		$('input:disabled').prop('disabled', false);
+ 				$('select:disabled').prop('disabled', false);
+        		showLoader()
+            	form.submit();
+			},function() {});
+        }
+    });
+</script>
+
+<script>
+<?php /*?>
+    $(document).ready(function() {
+
+        //init date time picker
+        $("[name='booking_date']").datetimepicker({
+            useCurrent: false,
+            viewMode: 'days',
+            ignoreReadonly: true,
+            widgetPositioning: {
+                vertical: 'bottom'
+            },
+            //minDate: moment().startOf('d'),
+            format: '{{ config("constants.DEFAULT_DATE_FORMAT") }}',
+
+        });
+        $(function () {
+        	 // $("[name='booking_date']").data('DateTimePicker').maxDate(moment().endOf('d'));
+         });
+        $("[name='collection_date']").datetimepicker({
+            useCurrent: false,
+            viewMode: 'days',
+            ignoreReadonly: true,
+            widgetPositioning: {
+                vertical: 'bottom'
+            },
+            //minDate: moment().startOf('d'),
+            format: '{{ config("constants.DEFAULT_DATE_FORMAT") }}',
+
+        });
+        $("[name='amazon_appointment_date']").datetimepicker({
+            useCurrent: false,
+            viewMode: 'days',
+            ignoreReadonly: true,
+            widgetPositioning: {
+                vertical: 'bottom'
+            },
+           format: '{{ config("constants.DEFAULT_DATE_FORMAT") }}',
+
+        });
+
+        $("[name='delivery_date']").datetimepicker({
+            useCurrent: false,
+            viewMode: 'days',
+            ignoreReadonly: true,
+            widgetPositioning: {
+                vertical: 'bottom'
+            },
+            //minDate: moment().startOf('d'),
+            format: '{{ config("constants.DEFAULT_DATE_FORMAT") }}',
+
+        });
+        <?php if( isset($recordInfo) && ( $recordInfo->i_id > 0 ) ) { ?>
+			var amazon_appointment_date = '{{ ( isset($recordInfo->dt_amazon_appointment_date) ? $recordInfo->dt_amazon_appointment_date : '') }}';
+
+			if(amazon_appointment_date != "" && amazon_appointment_date != null){
+				//$("[name='amazon_appointment_date']").data('DateTimePicker').minDate(moment(amazon_appointment_date).startOf('d'));
+	    	} else {
+	    		//$("[name='amazon_appointment_date']").data('DateTimePicker').minDate(moment().startOf('d'));
+		    }
+		    
+		<?php } else { ?>
+				$("[name='amazon_appointment_date']").data('DateTimePicker').minDate(moment().startOf('d'));
+		<?php } ?>
+
+    });
+    <?php */?>
+    function shipmentRecordShow(thisitem){
+        var shiment_to_selected_value = $.trim($("[name='to']").val());
+       	if(shiment_to_selected_value !="" && shiment_to_selected_value != null){
+           	
+			switch(shiment_to_selected_value){
+				case '{{ config("constants.AMAZON_FBA_SHEET")}}':
+					$('.shipment-details-amazon-record').show();
+					$('.amazon-appointment-date-record').show();
+		           	$('.amazon-appointment-id-record').show();
+					$('.shipment-details-uk-warehouse-record').hide();
+					$('.shipment-details-customer-record').hide();
+					break;
+				case '{{ config("constants.CUSTOMER_FBA_SHEET")}}':
+					$('.shipment-details-customer-record').show();
+					$('.shipment-details-amazon-record').hide();
+		       		$('.shipment-details-uk-warehouse-record').hide();
+		       		$('.amazon-appointment-date-record').hide();
+		           	$('.amazon-appointment-id-record').hide();
+		       		break;
+				case '{{ config("constants.UK_WAREHOUSE_FBA_SHEET")}}':
+					$('.shipment-details-uk-warehouse-record').show();
+					$('.shipment-details-amazon-record').hide();
+		       		$('.shipment-details-customer-record').hide();
+		       		$('.amazon-appointment-date-record').hide();
+		           	$('.amazon-appointment-id-record').hide();
+		       		break;
+			}
+			
+       	} else{
+           	$('.amazon-appointment-date-record').hide();
+           	$('.amazon-appointment-id-record').hide();
+       		$('.shipment-details-amazon-record').hide();
+       		$('.shipment-details-customer-record').hide();
+       		$('.shipment-details-uk-warehouse-record').hide();
+        }
+    }
+var us_warehouse_to_amazon_shipment_amazon_count = 2;
+function addNewShipmentDetailsAmazon(thisitem){
+	us_warehouse_to_amazon_shipment_amazon_count++;
+	var html = '';
+	var tracking_no = '';
+	var tracking_no_readonly_flag = '';
+	<?php if( isset($recordInfo) && ( $recordInfo->i_id > 0 ) ) { ?>
+		tracking_no = $.trim($(".shipment-details-amazon-tbody").find('.amazon-tracking-no-row:first').val());
+		tracking_no_readonly_flag = 'readonly';
+	<?php } ?>
+	html += '<tr>';
+	html += '<td class="table-index text-center" style="width:70px;min-width:70px;">'+us_warehouse_to_amazon_shipment_amazon_count+'</td>';
+	html += '<td class="text-left"><input type="text" class="form-control amazon-shipment-id-status" onchange="checkUniqueShipmentId(this)" name="shipment_id_'+us_warehouse_to_amazon_shipment_amazon_count+'"></td>';
+	html += '<td class="text-left"><input type="text" class="form-control ref-amazon-row" name="ref_id_'+us_warehouse_to_amazon_shipment_amazon_count+'"></td>';
+	html += '<td class="text-left">';
+	html += '<select name="account_'+us_warehouse_to_amazon_shipment_amazon_count+'" class="form-control account-amazon-row">';
+	html += '<option value="">{{ trans("messages.select") }}</option>';
+    <?php 
+    if(!empty($companyMasterRecordDetails)){
+     	foreach ($companyMasterRecordDetails as $companyMasterRecordDetail){
+    		$encodeId =  Wild_tiger::encode($companyMasterRecordDetail->i_id);
+        	?>
+        	html += '<option value="{{ $encodeId }}">{{ (!empty($companyMasterRecordDetail->v_company_name) ? $companyMasterRecordDetail->v_company_name . (!empty($companyMasterRecordDetail->v_company_short_code) ? ' ('. $companyMasterRecordDetail->v_company_short_code . ')' : '' )  : '') }}</option>';
+       		<?php 
+      	}
+	}
+	?>
+    html += '</select>';
+    html += '</td>';
+    html += '<td class="text-left">';
+    html += '<select name="amazon_from_warehouse_'+us_warehouse_to_amazon_shipment_amazon_count+'" class="form-control from-warehouse-amazon-row">';
+    html += '<option value="">{{ trans("messages.select") }}</option>';
+    <?php 
+    if(!empty($amazonFromWarehouseDetails)){
+    	foreach ($amazonFromWarehouseDetails as $amazonFromWarehouseDetail){
+    		$amazonFromWarehouseEncodeId =  Wild_tiger::encode($amazonFromWarehouseDetail->i_id);
+    		?>
+    		html += '<option value="{{ $amazonFromWarehouseEncodeId }}">{{ (!empty($amazonFromWarehouseDetail->v_warehouse_name) ? $amazonFromWarehouseDetail->v_warehouse_name . (!empty($amazonFromWarehouseDetail->v_warehouse_code) ? ' ('. $amazonFromWarehouseDetail->v_warehouse_code . ')' : '' ) : '') }}</option>';
+          	<?php 	
+       	}
+	}?>
+	html += '</select>';
+	html += '</td>';
+	html += '<td class="text-left">';
+	html += '<select name="to_amazon_location_'+us_warehouse_to_amazon_shipment_amazon_count+'" class="form-control to-location-amazon-row select2">';
+	html += '<option value="">{{ trans("messages.select") }}</option>';
+	<?php 
+	if(!empty($locationMasterDetails)){
+		foreach ($locationMasterDetails as $locationMasterDetail){
+			$locationMasterDetailEncodeId =  Wild_tiger::encode($locationMasterDetail->i_id);
+        	?>
+        	html += '<option value="{{ $locationMasterDetailEncodeId }}">{{ (!empty($locationMasterDetail->v_warehouse_name) ? $locationMasterDetail->v_warehouse_name . (!empty($locationMasterDetail->v_warehouse_code) ? ' ('. $locationMasterDetail->v_warehouse_code . ')' : '' ) : '') }}</option>';
+        	<?php 	
+    	}
+ 	}?>
+ 	html += '</select>';
+ 	html += '</td>';
+ 	html += '<td class="text-left">';
+ 	html += '<input type="text" class="form-control product-amazon-row" name="product_'+us_warehouse_to_amazon_shipment_amazon_count+'">';
+ 	html += '</td>';
+ 	html += '<td class="text-left">';
+ 	html += '<input type="text" class="form-control sku-amazon-row" name="sku_'+us_warehouse_to_amazon_shipment_amazon_count+'">';
+ 	html += '</td>';
+ 	html += '<td class="text-left">';
+ 	html += '<input type="text" class="form-control unit-amazon-row" name="unit_'+us_warehouse_to_amazon_shipment_amazon_count+'">';
+ 	html += '</td>';
+ 	html += '<td class="text-left">';
+ 	html += '<input type="text" class="form-control  price-amazon-row" name="price_'+us_warehouse_to_amazon_shipment_amazon_count+'" onkeyup="onlyDecimal(this)">';
+ 	html += '</td>';
+ 	html += '<td class="text-left">';
+ 	html += '<input type="text" name="amazon_booking_date_'+us_warehouse_to_amazon_shipment_amazon_count+'" class="form-control date-format" >';
+ 	html += '</td>';
+ 	html += '<td class="text-left">';
+ 	html += '<input type="text" name="amazon_collection_date_'+us_warehouse_to_amazon_shipment_amazon_count+'" class="form-control date-format">';
+ 	html += '</td>';
+ 	html += '<td class="text-left">';
+ 	html += '<input type="text" name="amazon_delivery_date_'+us_warehouse_to_amazon_shipment_amazon_count+'" class="form-control date-format">';
+ 	html += '</td>';
+ 	html += '<td class="text-left">';
+ 	html += '<textarea name="amazon_remarks_'+us_warehouse_to_amazon_shipment_amazon_count+'" class="form-control" rows="1">';
+ 	html += '</textarea>';
+ 	html += '</td>';
+ 	html += '<td class="text-left">';
+ 	html += '<select name="amazon_box_pallet_type_'+us_warehouse_to_amazon_shipment_amazon_count+'" class="form-control amazon-box-pallet-type-row" {{ $disableForm }}>';
+ 	html += '<option value="">{{ trans("messages.select") }}</option>';
+    <?php 
+    if(!empty($boxPalletTypeInfo)){
+     	foreach($boxPalletTypeInfo as $key => $boxPalletType){?>
+        	html += '<option value="{{ $key }}">{{ $boxPalletType }}</option>';
+          	<?php 
+		}	
+	}
+    ?>
+
+    html += '</select>';
+    html += '</td>';
+    html += '<td class="text-left">';
+    html += '<input type="text" onkeyup="onlyDecimal(this)" name="amazon_total_no_of_pallets_boxes_'+us_warehouse_to_amazon_shipment_amazon_count+'" {{ $disableForm }} class="form-control amazon-total-no-of-pallet-row">';
+    html += '</td>';
+ 	html += '<td class="text-left">';
+ 	html += '<input type="text" value="'+tracking_no+'" '+tracking_no_readonly_flag+' name="amazon_tracking_no_'+us_warehouse_to_amazon_shipment_amazon_count+'" class="form-control amazon-tracking-no-row">';
+ 	html += '</td>';
+ 	html += '<td class="text-left">';
+ 	html += '<input type="text" name="amazon_tracking_link_'+us_warehouse_to_amazon_shipment_amazon_count+'" class="form-control">';
+ 	html += '</td>';
+ 	html += '<td class="text-left">';
+ 	html += '<input type="text" name="amazon_appointment_date_'+us_warehouse_to_amazon_shipment_amazon_count+'" class="form-control date-format">';
+ 	html += '</td>';
+ 	html += '<td class="text-left">';
+ 	html += '<input type="text" name="amazon_appointment_id_'+us_warehouse_to_amazon_shipment_amazon_count+'" class="form-control">';
+ 	html += '</td>';
+
+	html += '<td style="width:70px;min-width:70px;"><button type="button" class="btn btn-sm btn-danger m-auto d-table" onclick="removeLogisticTableRrecord(this)"><i class="fa fa-trash fa-fw"></i></button></td>';
+ 	html += '</tr>';
+ 	if( $('.shipment-details-amazon-tbody').find('tr').length > 0 ){
+  		$(html).insertAfter($('.shipment-details-amazon-tbody').find('tr:last'));	
+	} else {
+		$('.shipment-details-amazon-tbody').html(html);
+	}
+	reindexTable('shipment-details-amazon-tbody');
+	$(function(){
+		$('.select2').select2();
+	})
+	
+	$(function(){
+		$(".shipment-details-amazon-tbody tr").each(function(){
+			$( $(this).find('input[type="text"], textarea, select') ).on('change' , function(){
+				$(this).parents('tr').addClass('filled-record');	
+			});
+		})
+	})
+
+	$(document).ready(function() {
+
+        //init date time picker
+		$(".date-format").datetimepicker({
+		 	useCurrent: false,
+		 	viewMode: 'days',
+		 	ignoreReadonly: true,
+			widgetPositioning: {
+		    	vertical: 'bottom'
+			},
+	        //minDate: moment().startOf('d'),
+	        format: '{{ config("constants.DEFAULT_DATE_FORMAT") }}',
+
+		});
+    });
+} 
+var us_warehouse_to_amazon_shipment_ukwarehouse_count = 2;
+function addNewShipmentDetailsWarehouse(thisitem){
+	us_warehouse_to_amazon_shipment_ukwarehouse_count++;
+	var html = '';
+	var tracking_no = '';
+	var tracking_no_readonly_flag = '';
+	<?php if( isset($recordInfo) && ( $recordInfo->i_id > 0 ) ) { ?>
+		tracking_no = $.trim($(".shipment-details-uk-warehouse-tbody").find('.uk-tracking-no-warehouse').val());
+		tracking_no_readonly_flag = 'readonly';
+	<?php } ?>
+	html += '<tr>';
+	html += '<td class="table-index text-center">'+us_warehouse_to_amazon_shipment_ukwarehouse_count+'</td>';
+	html += '<td class="text-left">';
+	html += '<input type="text" class="form-control invoice-no-ref-no-row  amazon-shipment-id-status" onchange="checkUniqueShipmentId(this)" name="invoice_no_ref_no_'+us_warehouse_to_amazon_shipment_ukwarehouse_count+'">';
+    html += '</td>';
+    html += '<td class="text-left">';
+    html += '<select name="uk_account_'+us_warehouse_to_amazon_shipment_ukwarehouse_count+'[]" class="form-control uk-account-row select2" multiple>';
+   	<?php 
+    if(!empty($companyMasterRecordDetails)){
+    	foreach ($companyMasterRecordDetails as $companyMasterRecordDetail){
+     		$compnayRecordDetailEncodedId = Wild_tiger::encode($companyMasterRecordDetail->i_id);
+        	?>
+        	html += '<option value="{{ $compnayRecordDetailEncodedId }}">{{ (!empty($companyMasterRecordDetail->v_company_name) ? $companyMasterRecordDetail->v_company_name . (!empty($companyMasterRecordDetail->v_company_short_code) ? ' ('. $companyMasterRecordDetail->v_company_short_code . ')' : '' )  : '') }}</option>';
+            <?php 
+        }
+    }
+    ?>
+    html += '</select>';
+    html += '</td>';
+    html += '<td class="text-left">';
+    html += '<select name="uk_from_warehouse_'+us_warehouse_to_amazon_shipment_ukwarehouse_count+'" class="form-control uk-from-warehouse-row">';
+    html += '<option value="">{{ trans("messages.select") }}</option>';
+    <?php 
+    if(!empty($amazonFromWarehouseDetails)){
+    	foreach ($amazonFromWarehouseDetails as $amazonFromWarehouseDetail){
+        	$amazonFromWarehouseEncodeId =  Wild_tiger::encode($amazonFromWarehouseDetail->i_id);
+         	?>
+         	html += '<option value="{{ $amazonFromWarehouseEncodeId }}">{{ (!empty($amazonFromWarehouseDetail->v_warehouse_name) ? $amazonFromWarehouseDetail->v_warehouse_name . (!empty($amazonFromWarehouseDetail->v_warehouse_code) ? ' ('. $amazonFromWarehouseDetail->v_warehouse_code . ')' : '' ) : '') }}</option>';
+           	<?php 	
+       	}
+  	}?>
+  	html += '</select>';
+  	html += '</td>';
+  	html += '<td class="text-left">';
+  	html += '<select name="uk_to_warehouse_'+us_warehouse_to_amazon_shipment_ukwarehouse_count+'" class="form-control uk-to-warehouse-row">';
+  	html += '<option value="">{{ trans("messages.select") }}</option>';
+    <?php 
+    if(!empty($ukWarehouseDetails)){
+    	foreach ($ukWarehouseDetails as $ukWarehouseDetail){
+      		$uWwarehouseEncodeId =  Wild_tiger::encode($ukWarehouseDetail->i_id);
+       		?>
+       		html += '<option value="{{ $uWwarehouseEncodeId }}">{{ (!empty($ukWarehouseDetail->v_warehouse_name) ? $ukWarehouseDetail->v_warehouse_name . (!empty($ukWarehouseDetail->v_warehouse_code) ? ' ('. $ukWarehouseDetail->v_warehouse_code . ')' : '' ) : '') }}</option>';
+         	<?php 	
+    	}
+	}?>
+	html += '</select>';
+	html += '</td>';
+	html += '<td class="text-left">';
+	html += '<input type="text" class="form-control uk-unit-row" name="uk_unit_'+us_warehouse_to_amazon_shipment_ukwarehouse_count+'">';
+	html += '</td>';
+	//html += '<td class="text-left">';
+	//html += '<input type="text" class="form-control" name="box_pallet_'+us_warehouse_to_amazon_shipment_ukwarehouse_count+'">';
+	//html += '</td>';
+	html += '<td class="text-left">';
+	html += '<input type="text" class="form-control date-format" name="warehouse_booking_date_'+us_warehouse_to_amazon_shipment_ukwarehouse_count+'" >';
+	html += '</td>';
+	html += '<td class="text-left">';
+	html += '<input type="text" class="form-control date-format" name="warehouse_collection_date_'+us_warehouse_to_amazon_shipment_ukwarehouse_count+'">';
+	html += '</td>';
+	html += '<td class="text-left">';
+	html += '<input type="text" name="warehouse_delivery_date_'+us_warehouse_to_amazon_shipment_ukwarehouse_count+'" class="form-control date-format">';
+	html += '</td>';
+ 	html += '<td class="text-left">';
+ 	html += '<textarea name="warehouse_remarks_'+us_warehouse_to_amazon_shipment_ukwarehouse_count+'" class="form-control" rows="1">';
+ 	html += '</textarea>';
+ 	html += '</td>';
+ 	html += '<td class="text-left">';
+ 	html += '<select name="warehouse_box_pallet_type_'+us_warehouse_to_amazon_shipment_ukwarehouse_count+'" class="form-control uk-warehouse-type-row" {{ $disableForm }}>';
+ 	html += '<option value="">{{ trans("messages.select") }}</option>';
+    <?php 
+    if(!empty($boxPalletTypeInfo)){
+     	foreach($boxPalletTypeInfo as $key => $boxPalletType){?>
+        	html += '<option value="{{ $key }}">{{ $boxPalletType }}</option>';
+          	<?php 
+		}	
+	}
+    ?>
+
+    html += '</select>';
+    html += '</td>';
+    html += '<td class="text-left">';
+    html += '<input type="text" onkeyup="onlyDecimal(this)"  name="warehouse_total_no_of_pallets_boxes_'+us_warehouse_to_amazon_shipment_ukwarehouse_count+'" {{ $disableForm }} class="form-control uk-warehouse-total-box-pallets-row">';
+    html += '</td>';
+ 	html += '<td class="text-left">';
+ 	html += '<input type="text" class="form-control uk-tracking-no-warehouse" '+tracking_no_readonly_flag+' value="'+tracking_no+'" name="warehouse_tracking_no_'+us_warehouse_to_amazon_shipment_ukwarehouse_count+'">';
+ 	html += '</td>';
+	html += '<td class="text-left">';
+	html += '<input type="text" class="form-control" name="warehouse_tracking_link_'+us_warehouse_to_amazon_shipment_ukwarehouse_count+'">';
+	html += '</td>';
+	html += '<td class="text-left">';
+	html += '<a title="Download" href="javascript:void(0);" class="btn btn-sm btn-danger mb-1" onclick="removeLogisticTableRrecord(this)"><i class="fa fa-trash fa-fw"></i></a>';
+	html += '</td>';
+	html += '</tr>';
+
+	if( $('.shipment-details-uk-warehouse-tbody').find('tr').length > 0 ){
+  		$(html).insertAfter($('.shipment-details-uk-warehouse-tbody').find('tr:last'));	
+	} else {
+		$('.shipment-details-uk-warehouse-tbody').html(html);
+	}
+	reindexTable('shipment-details-uk-warehouse-tbody');
+	$(function(){
+		$('.select2').select2();
+		$(".shipment-details-uk-warehouse-tbody tr").each(function(){
+			$( $(this).find('input[type="text"], textarea, select') ).on('change' , function(){
+				$(this).parents('tr').addClass('filled-record');	
+			});
+		})
+	})
+	$(document).ready(function() {
+
+        //init date time picker
+		$(".date-format").datetimepicker({
+		 	useCurrent: false,
+		 	viewMode: 'days',
+		 	ignoreReadonly: true,
+			widgetPositioning: {
+		    	vertical: 'bottom'
+			},
+	        //minDate: moment().startOf('d'),
+	        format: '{{ config("constants.DEFAULT_DATE_FORMAT") }}',
+
+		});
+    });
+}
+
+var us_warehouse_to_amazon_shipment_customer_count = 2;
+function addNewShipmentDetailsCustomer(thisitem){
+	us_warehouse_to_amazon_shipment_customer_count++;
+	var html = '';
+	var tracking_no = '';
+	var tracking_no_readonly_flag = '';
+	<?php if( isset($recordInfo) && ( $recordInfo->i_id > 0 ) ) { ?>
+		tracking_no = $.trim($(".shipment-details-customer-record-tbody").find('.customer-tracking-no-record:first').val());
+		tracking_no_readonly_flag = 'readonly'
+	<?php } ?>
+	html += '<tr>';
+	html += '<td class="table-index text-center">'+us_warehouse_to_amazon_shipment_customer_count+'</td>';
+	html += '<td class="text-left">';
+	html += '<input type="text" class="form-control invoice-no-customer-record amazon-shipment-id-status"  onchange="checkUniqueShipmentId(this)"name="invoice_no_'+us_warehouse_to_amazon_shipment_customer_count+'">';
+	html += '</td>';
+	html += '<td class="text-left">';
+	html += '<select name="customer_name_'+us_warehouse_to_amazon_shipment_customer_count+'" class="form-control customer-name-record select2">';
+	html += '<option value="">{{ trans("messages.select") }}</option>';
+    <?php 
+    if(!empty($customerRecordDetails)){
+    	foreach ($customerRecordDetails as $customerRecordDetail){
+        	$customerRecordDetailEncodedId = Wild_tiger::encode($customerRecordDetail->i_id);
+       		?>
+       		html += '<option value="{{ $customerRecordDetailEncodedId }}">{{ (!empty($customerRecordDetail->v_customer_name) ? $customerRecordDetail->v_customer_name : '') }}</option>';
+            <?php 
+   		}
+	}
+	?>
+	html += '</select>';
+	html += '</td>';
+	html += '<td class="text-left">';
+	html += '<select name="customer_from_warehouse_'+us_warehouse_to_amazon_shipment_customer_count+'" class="form-control customer-from-warehouse-record">';
+	html += '<option value="">{{ trans("messages.select") }}</option>';
+    <?php 
+    if(!empty($amazonFromWarehouseDetails)){
+    	foreach ($amazonFromWarehouseDetails as $amazonFromWarehouseDetail){
+       		$amazonFromWarehouseEncodeId =  Wild_tiger::encode($amazonFromWarehouseDetail->i_id);
+         	?>
+         	html += '<option value="{{ $amazonFromWarehouseEncodeId }}">{{ (!empty($amazonFromWarehouseDetail->v_warehouse_name) ? $amazonFromWarehouseDetail->v_warehouse_name . (!empty($amazonFromWarehouseDetail->v_warehouse_code) ? ' ('. $amazonFromWarehouseDetail->v_warehouse_code . ')' : '' ) : '') }}</option>';
+        	<?php 	
+   		}
+  	}?>
+  	html += '</select>';
+  	html += '</td>';
+  	html += '<td class="text-left">';
+  	html += '<select name="to_customer_'+us_warehouse_to_amazon_shipment_customer_count+'" class="form-control to-customer-record select2">';
+  	html += '<option value="">{{ trans("messages.select") }}</option>';
+    <?php 
+    if(!empty($customerLocationRecordDetails)){
+    	foreach ($customerLocationRecordDetails as $customerLocationRecordDetail){
+        	$customerLocationRecordDetailId = Wild_tiger::encode($customerLocationRecordDetail->i_id);
+         	?>
+         	html += '<option value="{{ $customerLocationRecordDetailId }}">{{ (!empty($customerLocationRecordDetail->v_customer_code) ? $customerLocationRecordDetail->v_customer_code .(!empty($customerLocationRecordDetail->v_customer_address) ? ' - ' .$customerLocationRecordDetail->v_customer_address :''): '' ) }}</option>';
+         	<?php 
+        }
+   	}
+    ?>
+    html += '</select>';
+    html += '</td>';
+    html += '<td class="text-left">';
+    html += '<input type="text" class="form-control customer-unit-record" name="customer_unit_'+us_warehouse_to_amazon_shipment_customer_count+'">';
+    html += '</td>';
+   // html += '<td class="text-left">';
+   // html += '<input type="text" class="form-control" name="box_pallet_'+us_warehouse_to_amazon_shipment_customer_count+'">';
+   // html += '</td>';
+    html += '<td class="text-left">';
+    html += '<input type="text" name="customer_booking_date_'+us_warehouse_to_amazon_shipment_customer_count+'" class="form-control date-format">';
+    html += '</td>';
+    html += '<td class="text-left">';
+    html += '<input type="text" name="customer_collection_date_'+us_warehouse_to_amazon_shipment_customer_count+'" class="form-control date-format">';
+    html += '</td>';
+   	html += '<td class="text-left">';
+    html += '<input type="text" name="customer_delivery_date_'+us_warehouse_to_amazon_shipment_customer_count+'" class="form-control date-format">';
+    html += '</td>';
+ 	html += '<td class="text-left">';
+ 	html += '<textarea name="customer_remarks_'+us_warehouse_to_amazon_shipment_customer_count+'" class="form-control" rows="1">';
+ 	html += '</textarea>';
+ 	html += '</td>';
+ 	html += '<td class="text-left">';
+ 	html += '<select name="customer_box_pallet_type_'+us_warehouse_to_amazon_shipment_customer_count+'" class="form-control customer-box-pallets-row" {{ $disableForm }}>';
+ 	html += '<option value="">{{ trans("messages.select") }}</option>';
+ 		<?php 
+ 		if(!empty($boxPalletTypeInfo)){
+ 	     	foreach($boxPalletTypeInfo as $key => $boxPalletType){?>
+ 	        	html += '<option value="{{ $key }}">{{ $boxPalletType }}</option>';
+ 	          	<?php 
+ 			}	
+ 		}
+ 	    ?>
+ 	html += '</select>';
+ 	html += '</td>';
+ 	html += '<td class="text-left">';
+ 	html += '<input type="text" onkeyup="onlyDecimal(this)" name="customer_total_no_of_pallets_boxes_'+us_warehouse_to_amazon_shipment_customer_count+'" {{ $disableForm }} class="form-control customer-total-no-of-box-pallets-row">';
+ 	html += '</td>';
+ 	html += '<td class="text-left">';
+ 	html += '<input type="text" value="'+tracking_no+'" '+tracking_no_readonly_flag+' name="customer_tracking_no_'+us_warehouse_to_amazon_shipment_customer_count+'" class="form-control customer-tracking-no-record">';
+ 	html += '</td>';
+    html += '<td class="text-left">';
+    html += '<input type="text" name="customer_tracking_link_'+us_warehouse_to_amazon_shipment_customer_count+'" class="form-control">';
+    html += '</td>';
+    html += '<td class="text-left">';
+    html += '<a title="Download" href="javascript:void(0);" class="btn btn-sm btn-danger mb-1" onclick="removeLogisticTableRrecord(this)"><i class="fa fa-trash fa-fw"></i></a>';
+    html += '</td>';
+    html += '</tr>';
+    if( $('.shipment-details-customer-record-tbody').find('tr').length > 0 ){
+  		$(html).insertAfter($('.shipment-details-customer-record-tbody').find('tr:last'));	
+	} else {
+		$('.shipment-details-customer-record-tbody').html(html);
+	}
+	reindexTable('shipment-details-customer-record-tbody');	
+	$(function(){
+		$('.select2').select2();
+		$(".shipment-details-customer-record-tbody tr").each(function(){
+			$( $(this).find('input[type="text"], textarea, select') ).on('change' , function(){
+				$(this).parents('tr').addClass('filled-record');	
+			});
+		})
+	})
+		$(document).ready(function() {
+
+	        //init date time picker
+			$(".date-format").datetimepicker({
+			 	useCurrent: false,
+			 	viewMode: 'days',
+			 	ignoreReadonly: true,
+				widgetPositioning: {
+			    	vertical: 'bottom'
+				},
+		        //minDate: moment().startOf('d'),
+		        format: '{{ config("constants.DEFAULT_DATE_FORMAT") }}',
+
+			});
+	    });
+}
+
+$(document).ready(function() {
+
+    //init date time picker
+    $(".date-format").datetimepicker({
+        useCurrent: false,
+        viewMode: 'days',
+        ignoreReadonly: true,
+        widgetPositioning: {
+            vertical: 'bottom'
+        },
+        //minDate: moment().startOf('d'),
+        format: '{{ config("constants.DEFAULT_DATE_FORMAT") }}',
+
+    });
+});
+
+
+$(".shipment-details-amazon-tbody tr").each(function(){
+	$( $(this).find('input[type="text"], textarea, select') ).on('change' , function(){
+		$(this).parents('tr').addClass('filled-record');	
+	});
+})
+
+$(".shipment-details-customer-record-tbody tr").each(function(){
+	$( $(this).find('input[type="text"], textarea, select') ).on('change' , function(){
+		$(this).parents('tr').addClass('filled-record');	
+	});
+})
+
+$(".shipment-details-uk-warehouse-tbody tr").each(function(){
+	$( $(this).find('input[type="text"], textarea, select') ).on('change' , function(){
+		$(this).parents('tr').addClass('filled-record');	
+	});
+})
+function hideShowFieldsBasedOnTo(thisitem){
+	var to_value = $.trim($(thisitem).val());
+
+	if(to_value != '' && to_value != null && to_value == '{{ config("constants.AMAZON_FBA_SHEET") }}'){
+		$('[name="to_warehouse"]').val('');
+		$('[name="to_warehouse"]').trigger('change');
+		$('.way-transport-bookby-logistic-partner-hide-show-div').hide();
+	} else {
+		$('.way-transport-bookby-logistic-partner-hide-show-div').show();
+	}
+}
+
+
+function addNewInvoiceRow(thisitem){
+    // Count only new (non-edit_) invoice rows to build contiguous indices backend expects
+    var idx = $('.agent-to-warehouse-transport-tbody').find('select[name^="name_"]').length + 1;
+    var html = '';
+    html += '<tr>';
+    html += '<td class="table-index">'+ idx +'</td>';
+    html += '<td class="text-left">';
+    html += '<select name="name_'+ idx +'" class="form-control agent-warehouse-transporter-name select2">';
+    html += '<option value="">{{ trans('messages.select') }}</option>';
+    <?php 
+    if(!empty($logisticPartnerDetails)){
+        foreach ($logisticPartnerDetails as $logisticPartnerDetail){
+            $encodeLogisticPartnerId = Wild_tiger::encode($logisticPartnerDetail->i_id);
+            ?>
+            html += '<option value="{{ $encodeLogisticPartnerId }}">{{ (!empty($logisticPartnerDetail->v_logistic_partner_name) ? $logisticPartnerDetail->v_logistic_partner_name : '' ) }}</option>';
+            <?php 
+        }
+    }
+    ?>
+    html += '</select>';
+    html += '</td>';
+    html += '<td class="text-left">';
+    html += '<input type="text" class="form-control agent-warehouse-transporter-inv-no" name="inv_no_'+ idx +'" placeholder="{{ trans('messages.inv-no') }}">';
+    html += '</td>';
+    html += '<td class="text-left">';
+    html += '<input type="text" class="form-control agent-to-warehouse-freight" name="freight_'+ idx +'" placeholder="{{ trans('messages.freight') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)">';
+    html += '</td>';
+    html += '<td class="text-left">';
+    html += '<input type="text" class="form-control agent-to-warehouse-custom" name="custom_'+ idx +'" placeholder="{{ trans('messages.custom') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)">';
+    html += '</td>';
+    html += '<td class="text-left">';
+    html += '<input type="text" class="form-control agent-to-warehouse-duty" name="duty_'+ idx +'" placeholder="{{ trans('messages.duty') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)">';
+    html += '</td>';
+    html += '<td class="text-left">';
+    html += '<input type="text" class="form-control agent-to-warehouse-other" name="other_'+ idx +'" placeholder="{{ trans('messages.other') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)">';
+    html += '</td>';
+    html += '<td class="text-left">';
+    html += '<input type="text" class="form-control agent-to-warehouse-vat" name="vat_'+ idx +'" placeholder="{{ trans('messages.vat') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)">';
+    html += '</td>';
+    html += '<td class="text-left">';
+    html += '<div class="input-group align-items-center flex-nowrap">';
+    html += '<label class="mb-0" for=""><span class="agent-warehouse-total-value"></span></label>';
+    html += '<div class="input-group-prepend">';
+    html += '<select class="form-control ml-2" name="currency_id_'+ idx +'" onchange="getTotalNumberOfValue(this)">';
+    html += '<option value="">{{ trans('messages.currency') }}</option>';
+    <?php 
+    if(!empty($currencyRecordDetails)){
+        foreach ($currencyRecordDetails as $currencyRecordDetail){
+            $encodeCurrencyId  = Wild_tiger::encode($currencyRecordDetail->i_id);
+            ?>
+            html += '<option value="{{ $encodeCurrencyId }}">{{ (!empty($currencyRecordDetail->v_currency_code) ? $currencyRecordDetail->v_currency_code : '' ) }}</option>';
+            <?php 
+        }
+    } 
+    ?>
+    html += '</select>';
+    html += '</div>';
+    html += '</div>';
+    html += '</td>';
+    html += '<td class="text-left">';
+    html += '<input type="text" class="form-control agent-to-warehouse-con-rate" name="cov_rate_'+ idx +'" placeholder="{{ trans('messages.cov-rate') }}" onkeyup="onlyDecimal(this),getTotalNumberOfValue(this)">';
+    html += '</td>';
+    html += '<td class="text-left"><span class="agent-warehouse-final-rate"></span></td>';
+    html += '<td class="text-left">';
+    html += '<div class="custom-file">';
+    html += '<input type="file" class="custom-file-input" id="invoice_'+ idx +'" name="invoice_file_'+ idx +'[]" multiple onchange="validFile(this,\'pdf_doc_jpg_png_jpeg_xls\')">';
+    html += '<label class="custom-file-label" for="invoice_'+ idx +'">{{ trans('messages.choose-file') }}</label>';
+    html += '</div>';
+    html += '</td>';
+    html += '<td class="actions-col">';
+    html += '</td>';
+    html += '</tr>';
+
+    if( $('.agent-to-warehouse-transport-tbody').find('tr').length > 0 ){
+        $(html).insertAfter($('.agent-to-warehouse-transport-tbody').find('tr:last'));
+    } else {
+        $('.agent-to-warehouse-transport-tbody').html(html);
+    }
+    reindexTable('agent-to-warehouse-transport-tbody');
+    if ($.fn.select2) { $('.select2').select2(); }
+}
+
+function addNewDocumentRow(thisitem){
+    // Count only new (non-edit_) document rows to build contiguous indices backend expects
+    var idx = $('.agent-to-warehouse-document-tbody').find('select[name^="type_"]').length + 1;
+    var html = '';
+    html += '<tr>';
+    html += '<td class="table-index text-center" style="width:70px;min-width:70px;">'+ idx +'</td>';
+    html += '<td class="text-left">';
+    html += '<select name="type_'+ idx +'" class="form-control warehouse-document-type">';
+    html += '<option value="">{{ trans('messages.select') }}</option>';
+    <?php 
+    if(!empty($documentTypeRecordDetails)){
+        foreach ($documentTypeRecordDetails as $documentTypeRecordDetail){
+            $encodeDocTypeId  = Wild_tiger::encode($documentTypeRecordDetail->i_id);
+            ?>
+            html += '<option value="{{ $encodeDocTypeId }}">{{ (!empty($documentTypeRecordDetail->v_document_type_name) ? $documentTypeRecordDetail->v_document_type_name : '' ) }}</option>';
+            <?php 
+        }
+    } 
+    ?>
+    html += '</select>';
+    html += '</td>';
+    html += '<td class="text-left">';
+    html += '<div class="custom-file">';
+    html += '<input type="file" class="custom-file-input warehouse-document-file" id="document_'+ idx +'" name="file_'+ idx +'[]" multiple onchange="validFile(this,\'pdf_doc_jpg_png_jpeg_xls\')">';
+    html += '<label class="custom-file-label" for="document_'+ idx +'">{{ trans('messages.choose-file') }}</label>';
+    html += '</div>';
+    html += '</td>';
+    html += '<td class="text-left">';
+    html += '<input type="text" class="form-control" name="remarks_'+ idx +'">';
+    html += '</td>';
+    html += '<td class="actions-col">';
+    html += '</td>';
+    html += '<td style="width:70px;min-width:70px;">';
+    html += '<button type="button" class="btn btn-sm btn-danger m-auto d-table" onclick="removeLogisticTableRrecord(this)"><i class="fa fa-trash fa-fw"></i></button>';
+    html += '</td>';
+    html += '</tr>';
+
+    if( $('.agent-to-warehouse-document-tbody').find('tr').length > 0 ){
+        $(html).insertAfter($('.agent-to-warehouse-document-tbody').find('tr:last'));
+    } else {
+        $('.agent-to-warehouse-document-tbody').html(html);
+    }
+    reindexTable('agent-to-warehouse-document-tbody');
+}
+
+</script>
+@endsection

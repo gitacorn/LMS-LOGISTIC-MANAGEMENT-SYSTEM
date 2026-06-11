@@ -1,0 +1,1 @@
+shipment_id,ref_id,account,from(us_warehouse),to(amazon_location),product,sku,unit,price,booking_date,collection_date,delivery_date,remarks,type,total_no_of_box_pallet,tracking_no,tracking_link,amazon_appointment_date ,amazon_appointment_id

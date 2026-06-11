@@ -1,0 +1,30 @@
+let messages = null;
+messages = {
+	'update_status':'Update Status',
+	'delete-record' : 'Delete Record',
+	'success':'status updated successfully',
+	'delete-record-msg': 'Are you sure want to delete this record?',
+	'record-status' : 'Record status',
+	'district_status' : 'District status',
+	'system_error': 'Error',
+	'duplicate-company' : 'this company already added. Please use another company name.',
+	'confirm-reject' : 'Confirm User Rejection',
+	'confirm-reject-msg' : 'Are you sure you want to reject seleted user?',
+	'confirm-lead-reject' : 'Confirm Lead Rejection',
+	'confirm-lead-reject-msg' : 'Are you sure you want to reject seleted lead?',
+	'confirm-approve' : 'Confirm User Approval',
+	'confirm-approve-msg' : 'Are you sure you want to approve seleted user?',
+	'confirm-lead-approve' : 'Confirm Lead Approval',
+	'confirm-lead-approve-msg' : 'Are you sure you want to approve seleted lead?',
+	'confirm-mark-user' : 'Mark As User',
+	'confirm-mark-user-msg' : 'Are you sure you want to mark as user to all seleted user ?',
+	'confirm-mark-admin' : 'Mark As Admin',
+	'confirm-mark-admin-msg' : 'Are you sure you want to  mark as admin all seleted user ?',
+	'invalid-reject-user-selection' : 'You can not reject approved user.',
+	
+	'add-nominee' : 'Confirm Add Nominee',
+	'add-nominee-msg' : 'Are you sure you want to add nominee details ?',
+	'add-existing-nominee' : 'Confirm Add Existing Nominee',
+	'add-existing-nominee-msg' : 'Are you sure you want to add existing nominee details ?',
+	
+};

@@ -1,0 +1,5 @@
+shipment_id,ref_id,account,from(us_warehouse),to(amazon_location),sku,unit,price,booking_date,collection_date,delivery_date,remarks,type,total_no_of_box_pallet,tracking_no,tracking_link,amazon_appointment_date ,amazon_appointment_id
+ADMN1244,RRR,A2Z STORES USA (A2Z US),BEAUTY STORE LLC (NEIL W/H),AMAZON CZ (PRG1),SKU-12,123,20.5852,12-12-2022,10-02-2023,10-02-2021,ssss,Box,546,admin,http://localhost/logistic-acorn/,12-11-2022,45
+,,,,,,rr,,,,,rtrt,Box,546,remarks,http://localhost/logistic-acorn/,,
+,ffgg,,,,rrr,,,,,,tretrtt,Pallet,6546,admin,http://localhost/logistic-acorn/,,
+,grgr,,,,,rr,,01-02-2015,,,retert,Box,demo,,,,546456

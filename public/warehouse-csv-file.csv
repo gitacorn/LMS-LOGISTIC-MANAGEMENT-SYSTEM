@@ -1,0 +1,2 @@
+invoice_no_ref_no,account,from(us_warehouse),to(uk_warehouse),unit,booking_date,collection_date,delivery_date,remarks,type,total_no_of_box_pallet,tracking_no,tracking_link
+ERERER5435,VIRTUAL WORKS 360 UK (VW360 UK),BEAUTY STORE LLC (NEIL W/H),ASTUTE HEALTHCARE LTD (HITCHIN),656,01-02-2023,01-12-2022,12-01-2022,ggfg,Box,6456,76757567567,https://report.a2zacorn.com/logistic-acorn/us-warehouse-to-amazon/create

@@ -1,0 +1,4 @@
+invoice_no,customer_name,from(us_warehouse),to(customer_location),unit,booking_date,collection_date,delivery_date,remarks,type,total_no_of_box_pallet,tracking_no,tracking_link
+FDFE343VF,SATURN LTD,BEAUTY STORE LLC (NEIL W/H),C0001 - SOLEC 81B/73A WARSZAWA 00-382 POLSKA,12,12-01-2023,01-01-2023,01-12-2022,hghfgh,Box,6456645,admin,http://localhost/logistic-acorn/us-warehouse-to-amazon/create
+TRTETRET7757,,,,,01-02-2023,02-12-2022,01-01-2023,tyuyt,Pallet,4566,demo,http://localhost/logistic-acorn/us-warehouse-to-amazon/create
+FDFE343VF,SATURN LTD,BEAUTY STORE LLC (NEIL W/H),C0001 - SOLEC 81B/73A WARSZAWA 00-382 POLSKA,12,12-01-2023,01-01-2023,05-05-2022,776juuu,,,,

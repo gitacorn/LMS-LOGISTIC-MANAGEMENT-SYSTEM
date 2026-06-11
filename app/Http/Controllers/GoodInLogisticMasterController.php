@@ -1,0 +1,1149 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Http\Request;
+use App\GoodInLogisticMasterModel;
+use App\Helpers\Twt\Wild_tiger;
+use App\SupplierDetailModel;
+use App\Document_Type_Master_Model;
+use App\CurrencyMasterModel;
+use App\Login;
+use App\LogisticPartnerMasterModel;
+use App\WarehouseMasterModel;
+use App\SupplierMasterModel;
+use App\GoodInBuyerDetailModel;
+use App\GoodInBuyerMasterModel;
+use App\StatusMasterModel;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Response;
+use App\LogisticPartnerDetailModel;
+use App\CountryMasterModel;
+use Illuminate\Support\Facades\Log;
+
+class GoodInLogisticMasterController extends MasterController
+{
+	public function __construct(){
+	
+		parent::__construct();
+		$this->tableName = config('constants.GOODS_IN_LOGISTIC_MASTER_TABLE');
+		$this->folderName = config('constants.ADMIN_FOLDER'). 'good-in-logistic/';
+		$this->moduleName = trans('messages.good-in-logistic');
+		$this->perPageRecord = config ( 'constants.PER_PAGE' );
+		$this->defaultPage = config ( 'constants.DEFAULT_PAGE_INDEX' );
+		$this->redirectUrl = config('constants.GOODS_IN_LOGITIC_MASTER_URL');
+		$this->crudModel = new GoodInLogisticMasterModel();
+		$this->goodInBuyerMasterModel = new GoodInBuyerMasterModel();
+	
+	}
+	public function index($buyeEntryNo = ""){
+		if(checkPermission(config('permission_constants.VIEW_GOODS_IN_LOGISTIC')) != true){
+			return redirect('access-denied');
+		}
+		$data = [];
+		$data ['pageTitle'] = trans('messages.good-in-logistic');
+		$data['collectionDeliveryInfo'] = collectionDeliveryInfo();
+		$data['supplierRecordDetails'] = SupplierMasterModel::orderBy('v_supplier_name', 'ASC')->get();
+		$data['userRecordDetails'] = Login::where('v_role',config ( 'constants.ROLE_USER'))->whereRaw("find_in_set('".config("constants.LOGISTIC")."',v_record_type)")->orderBy('v_name', 'ASC')->get();
+		$data['logisticPartnerRecordDetails'] = LogisticPartnerDetailModel::with(['logisticPartnerMaster'])->get();
+		$data['insuranceStatusDetails'] = insuranceStatus();
+		$data['statusMasterRecordDetails'] = StatusMasterModel::orderBy('i_sequence', 'ASC')->get();
+		$data['supplierCountryDetails'] = CountryMasterModel::orderBy('v_country_name', 'ASC')->get();
+		$where = $statusIds = $likeData = [];
+		$statusIds = [config('constants.DELIVERED_STATUS_ID'),config('constants.STATIC_STATUS_CANCELLED_ID')];
+		
+		$buyerEntryNo = (!empty($buyeEntryNo) ? $buyeEntryNo :'');
+		
+		if(!empty($buyerEntryNo)){
+			$likeData['searchByBuyerEntryNo'] = $buyerEntryNo;
+			$data['buyerEntryNo'] = $buyerEntryNo;
+			} else {
+			/* Hide DELIVERED and CANCELLED from the default list view */
+			$where['default_status'] = $statusIds;
+			$data['statusInfo'] = $statusIds;
+		}
+		// Show all records by default (no status filter — user can filter via the Filter button)
+		$data['recordDetails'] = $this->crudModel->getGoodsInLogisticMaster($where,$likeData);
+		$data['page_no'] = 1;
+		$data['perPageRecord'] = $this->perPageRecord;
+		$data['totalRecordCount'] = ( !empty($data['recordDetails']->total()) ? $data['recordDetails']->total() : 0 );
+		
+		return view($this->folderName . 'good-in-logistic')->with($data);
+	}
+	
+	public function filter(Request $request){
+		
+		//variable defined
+		$whereData = $likeData =  [];
+			
+		$page = (! empty($request->post('page')) ? $request->post('page') : 1);
+		
+		//search record
+		if (!empty($request->post('search_by_logistic_partner_name'))) {
+			$searchByName = trim($request->post('search_by_logistic_partner_name'));
+			$likeData['searchBy'] = $searchByName;
+		}
+		
+		if (!empty($request->post('search_by_buyer_no'))) {
+			$searchByName = trim($request->post('search_by_buyer_no'));
+			$likeData['searchByBuyerEntryNo'] = $searchByName;
+		}
+		if( ( !empty($request->post('search_supplier_name') ) ) && ( $request->post('search_supplier_name') ) ){
+			$allSupplierIds = explode("," , $request->post('search_supplier_name') );
+			if(!empty($allSupplierIds)){
+				$allSupplierIds = array_map(function($allSupplierId){
+					return (int)Wild_tiger::decode($allSupplierId);
+				}, $allSupplierIds);
+			}
+			if(!empty($allSupplierIds)){
+				$whereData['supplier_name'] =  $allSupplierIds;
+			}
+		
+		}
+		if(!empty($request->post('search_collection_delivery') )){
+			$whereData['collection_type'] = ($request->post('search_collection_delivery'));
+		}
+		if(!empty($request->post('search_book_by') )){
+			$whereData['book_by'] = (int)Wild_tiger::decode($request->post('search_book_by'));
+		}
+		if(!empty($request->post('search_logistic_partner') )){
+			$whereData['logistic_partner'] = (int)Wild_tiger::decode($request->post('search_logistic_partner'));
+		}
+		if(!empty($request->post('search_delivery_form_date') )){
+			$whereData['delivery_from_date'] = ($request->post('search_delivery_form_date'));
+		}
+		if(!empty($request->post('search_delivery_to_date') )){
+			$whereData['delivery_to_date'] = ($request->post('search_delivery_to_date'));
+		}
+		if(!empty($request->post('search_collection_form_date') )){
+			$whereData['collection_from_date'] = ($request->post('search_collection_form_date'));
+		}
+		if(!empty($request->post('search_collection_to_date') )){
+			$whereData['collection_to_date'] = ($request->post('search_collection_to_date'));
+		}
+		if(!empty($request->post('search_insurance_status') )){
+			$whereData['insurance_status'] = ($request->post('search_insurance_status'));
+		}
+		if(!empty($request->post('search_goods_in_from_date') )){
+			$whereData['goods_in_from_date'] = $request->post('search_goods_in_from_date');
+		}
+		if(!empty($request->post('search_goods_in_to_date') )){
+			$whereData['goods_in_to_date'] = $request->post('search_goods_in_to_date');
+		}
+		/* if(!empty($request->post('search_status') )){
+			$whereData['status'] = (int)Wild_tiger::decode($request->post('search_status'));
+		} */
+		if(!empty($request->post('search_status'))){
+			$allStatusIds = explode("," , $request->post('search_status') );
+			if(!empty($allStatusIds)){
+				$allStatusIds = array_map(function($allStatusId){
+					return (int)Wild_tiger::decode($allStatusId);
+				}, $allStatusIds);
+			}
+			if(!empty($allStatusIds)){
+				$whereData['status'] =  $allStatusIds;
+			}
+		
+		}
+		if(!empty($request->post('search_supplier_country'))){
+			$whereData['supplier_country'] = (int)Wild_tiger::decode($request->post('search_supplier_country'));
+		}
+		$exportAction = (!empty($request->input('custom_export_action')) ? trim($request->input('custom_export_action')) : '');
+		
+		if ($exportAction == 'export') {
+			$finalExportData = [];
+			$whereData['count_record'] = true;
+			$getExportRecordDetails = $this->crudModel->getGoodsInLogisticMaster($whereData, $likeData);
+			if (!empty($getExportRecordDetails)) {
+				$excelIndex = 0;
+				foreach ($getExportRecordDetails as $getExportRecordDetail) {
+					$allInvoiceDetails = ( isset($getExportRecordDetail->goodInLogisticInvoice) ? json_decode(json_encode($getExportRecordDetail->goodInLogisticInvoice),true) : [] );
+					$finalCharge = (!empty($allInvoiceDetails) ?  array_sum(array_column($allInvoiceDetails, 'd_final_charge')) : "" ) ;
+					
+					$invoiceWithPartner = [];
+					$allInvoiceCollectionDetails = ( isset($getExportRecordDetail->goodInLogisticInvoice) ? collect($getExportRecordDetail->goodInLogisticInvoice) : []);
+					foreach ($allInvoiceCollectionDetails as $allInvoiceCollectionDetail){
+						$allInvoicePartnerCollection = ( isset($allInvoiceCollectionDetail->logisticPartnerInfo) ? $allInvoiceCollectionDetail->logisticPartnerInfo : []);
+						if(isset($allInvoicePartnerCollection) && !empty($allInvoicePartnerCollection)){
+							$invoiceWithPartner[] = (isset($allInvoicePartnerCollection->v_logistic_partner_name) && !empty($allInvoicePartnerCollection->v_logistic_partner_name) ? $allInvoicePartnerCollection->v_logistic_partner_name . ' - ' : '') . (isset($allInvoiceCollectionDetail) && !empty($allInvoiceCollectionDetail) && isset($allInvoiceCollectionDetail->d_final_charge) && !empty($allInvoiceCollectionDetail->d_final_charge) ? $allInvoiceCollectionDetail->d_final_charge : 0);							
+						}
+					}
+					
+					$allSupplierDetails = ( isset($getExportRecordDetail->supplierMaster) ? json_decode(json_encode($getExportRecordDetail->supplierMaster),true) : [] );
+					$supplierNameInfo = (!empty($allSupplierDetails) ? array_column($allSupplierDetails, 'v_supplier_name') : []);
+					$supplierName = ( isset($supplierNameInfo) ? ( implode(', ', $supplierNameInfo)) : '');
+					
+					$allModeOfTransport = [];
+					if(isset($getExportRecordDetail->allGoodInBuyerDetail) && count($getExportRecordDetail->allGoodInBuyerDetail) > 0) {
+						foreach($getExportRecordDetail->allGoodInBuyerDetail as $buyerDetail) {
+							if(isset($buyerDetail->goodInBuyerMaster->e_mode_of_transport) && !empty($buyerDetail->goodInBuyerMaster->e_mode_of_transport)) {
+								$allModeOfTransport[] = $buyerDetail->goodInBuyerMaster->e_mode_of_transport;
+							}
+						}
+					}
+					$modeOfTransport = implode(', ', array_unique($allModeOfTransport));
+
+					$rowExcelData = [];
+					$rowExcelData['sr_no'] = ++$excelIndex;
+					$rowExcelData['logistic_entry_no'] = (isset($getExportRecordDetail->v_goods_in_logistic_master_no) ? ($getExportRecordDetail->v_goods_in_logistic_master_no) : '');
+					$rowExcelData['supplier_name'] = (!empty($supplierName) ? $supplierName : '') ;//(isset($getExportRecordDetail['supplierMasterRecord']->v_supplier_name) ? ($getExportRecordDetail['supplierMasterRecord']->v_supplier_name) :'');
+					//$rowExcelData['supplier_country'] = (!empty($getExportRecordDetail->supplierMaster[0]->supplierDetail[0]->countryMaster->v_country_name) ? $getExportRecordDetail->supplierMaster[0]->supplierDetail[0]->countryMaster->v_country_name : "");
+					//$rowExcelData['supplier_location'] = (isset($getExportRecordDetail['supplierDetail']->v_supplier_address) ?  $getExportRecordDetail['supplierDetail']->v_supplier_address   : '' );
+					$rowExcelData['collection_/_delivery'] =  (isset($getExportRecordDetail->e_logistic_collection_type) ? $getExportRecordDetail->e_logistic_collection_type :'');
+					$rowExcelData['mode_of_transport'] = $modeOfTransport;
+					$rowExcelData['book_by'] = (isset($getExportRecordDetail['employeeMaster']->v_name) ? $getExportRecordDetail['employeeMaster']->v_name . ( isset($getExportRecordDetail['employeeMaster']->v_department) ? ' ('.$getExportRecordDetail['employeeMaster']->v_department.')'  : '' ) :'');
+					$rowExcelData['logistic_partner'] = (isset($getExportRecordDetail['logisticPartnerDetail']['logisticPartnerMaster']->v_logistic_partner_name) ? $getExportRecordDetail['logisticPartnerDetail']['logisticPartnerMaster']->v_logistic_partner_name . ( isset($getExportRecordDetail['logisticPartnerDetail']->v_logistic_partner_code) ? ' ('.$getExportRecordDetail['logisticPartnerDetail']->v_logistic_partner_code.')'  : '' ):'');
+					$rowExcelData['collection_date'] = (isset($getExportRecordDetail->dt_collection_date) ? clientDate($getExportRecordDetail->dt_collection_date) : '');
+					$rowExcelData['tracking_no'] = ( isset($getExportRecordDetail->v_tracking_no) ?  ( $getExportRecordDetail->v_tracking_no ) : '' ) ;
+					$rowExcelData['tracking_link'] =  ( isset($getExportRecordDetail->v_tracking_link) ?  ( $getExportRecordDetail->v_tracking_link )  :'' ) ;
+					$rowExcelData['delivery_date'] = (isset($getExportRecordDetail->dt_delivery_date) ? clientDate($getExportRecordDetail->dt_delivery_date) : '');
+					$rowExcelData['goods_in_date'] = (isset($getExportRecordDetail->dt_goods_in_date) ? clientDate($getExportRecordDetail->dt_goods_in_date) : '');
+					$rowExcelData['transporter_invoice_info'] =  ( isset($invoiceWithPartner) && !empty($invoiceWithPartner) ? implode(', ', $invoiceWithPartner) : '' );
+					$rowExcelData['final_total_(GBP)'] =  (!empty($finalCharge) ? $finalCharge  : 0);
+					$rowExcelData['status'] = (isset($getExportRecordDetail['statusMaster']->v_status) ? ($getExportRecordDetail['statusMaster']->v_status) : '');
+					$rowExcelData['warehouse_comments'] = (!empty($getExportRecordDetail->v_status_comment) ? $getExportRecordDetail->v_status_comment : '');
+					$finalExportData[] = $rowExcelData;
+				}
+			}
+		
+			if (!empty($finalExportData)) {
+		
+				$fileName = trans('messages.export-module-file-name', ['moduleName' => trans('messages.good-in-logistic')]);
+		
+				$xlsData = $this->generateSpreadsheet(['record_detail' => $finalExportData, 'title' => trans('messages.good-in-logistic')]);
+				$response = ['status_code' => 1, 'data' => "data:application/vnd.ms-excel;base64," . base64_encode($xlsData), 'file_name' => $fileName];
+			} else {
+		
+				$response = ['status_code' => 101, 'message' => trans('messages.no-record-found')];
+			}
+		
+			return Response::json($response);
+			die;
+		}
+		
+		$paginationData = [];
+	
+		$whereData['page'] = $page;
+		
+		$data['recordDetails'] = $this->crudModel->getGoodsInLogisticMaster( $whereData, $likeData );
+		
+		$data['pagination'] = $paginationData;
+	
+		$data['page_no'] = $page;
+	
+		$data['perPageRecord'] = $this->perPageRecord;
+		
+		$totalRecords = count($data['recordDetails']);
+		
+		if(isset($totalRecords)){
+			$data['totalRecordCount'] = ( !empty($data['recordDetails']->total()) ? $data['recordDetails']->total() : 0 );
+		}
+	
+		$html = view (config('constants.AJAX_VIEW_FOLDER') . 'good-in-logistic/good-in-logistic-list' )->with ( $data )->render();
+	
+		echo $html;die;
+	}
+	
+	public function create($id = null,$collectionDelivery = null){
+		if(checkPermission(config('permission_constants.ADD_GOODS_IN_LOGISTIC')) != true ){
+			return redirect('access-denied');
+		}
+		$supplierId = (!empty($id) ? (int)Wild_tiger::decode($id) : 0 );
+		
+		$data = [];
+		$data ['pageTitle'] = trans('messages.add-logistic');
+		$data['collectionDeliveryInfo'] = collectionDeliveryInfo();
+		//$data['supplierRecordDetails'] = SupplierDetailModel::with(['supplierMaster'])->get();
+		$data['deliveryTypeInfo'] = deliveryTypeInfo();
+		$data['documentTypeRecordDetails'] = Document_Type_Master_Model::where('t_is_active',1)->where('e_document_type' , config ( 'constants.LOGISTIC') )->orderBy('v_document_type_name', 'ASC')->get();
+		$data['currencyRecordDetails'] = CurrencyMasterModel::where('t_is_active',1)->orderBy('v_currency_code', 'ASC')->get();
+		$data['userRecordDetails'] = Login::where('t_is_active',1)->whereRaw("find_in_set('".config("constants.LOGISTIC")."',v_record_type)")->where('v_role',config ( 'constants.ROLE_USER'))->orderBy('v_name', 'ASC')->get();
+		$whereData = [];
+		$whereData['t_is_active'] = 1;
+		$data['logisticPartnerDetails'] = LogisticPartnerDetailModel::with(['logisticPartnerMaster'])->whereHas('logisticPartnerMaster', function($query)use ($whereData){
+			$query->where('t_is_active',$whereData);
+		})->get();
+		$data['warehouseRecordDetails'] = WarehouseMasterModel::where('e_record_type',config ( 'constants.WAREHOUSE'))->where('t_is_active',1)->orderBy('v_warehouse_name', 'ASC')->get();
+		$data['statusMasterRecordDetails'] = StatusMasterModel::where('t_is_active',1)->orderBy('i_sequence', 'ASC')->get();
+		$data['insuranceStatusDetails'] = insuranceStatus();
+		$data['supplierRecordDetails'] = SupplierMasterModel::where('t_is_active',1)->orderBy('v_supplier_name', 'ASC')->get();
+		$data['logisticPartnerRecordDetails'] = LogisticPartnerMasterModel::where('t_is_active',1)->orderBy('v_logistic_partner_name', 'ASC')->get();
+		$data['disableForm'] = '';
+		$data['documentForm'] = '';
+		$data['invoiceForm'] = '';
+		$data['collectionDeliveryRecordInfo'] = (!empty($collectionDelivery) ? $collectionDelivery : null );
+		$data['supplierId'] = $supplierId;
+		
+		$data['statusDisableForm'] = '';
+		$data['viewRequest'] = false;
+		return view($this->folderName . 'add-good-in-logistic')->with($data);
+	}
+	public function getGoodInBuyerDetails(Request $request){
+		
+		if(!empty($request->input('supplier_record_id'))){
+			$whereData = [];
+			$allEncodeSupplierIds = (!empty($request->input('supplier_record_id')) ? explode("," , $request->input('supplier_record_id') ) : [] );
+			$allSupplierIds = [];
+			if(!empty($allEncodeSupplierIds)){
+				$allSupplierIds = array_map(function($allEncodeSupplierId){
+					return (int)Wild_tiger::decode($allEncodeSupplierId);
+				} , $allEncodeSupplierIds);
+			}
+			
+			//$supplierId =  (int)Wild_tiger::decode($request->input('supplier_record_id'));
+			$deliveryCollectionType = (!empty($request->input('collection_delivery')) ? $request->input('collection_delivery') : "" );
+				
+			//$whereData['supplier_location'] = [ $supplierId ];
+			$whereData['supplier'] =  $allSupplierIds ;
+			$whereData['collection_type'] = $deliveryCollectionType; 
+			//$whereData['record_status_type'] = config('constants.PARTIAL_DELIVERY_TYPE');
+			$whereData['count_record'] = true;
+			
+			$userLoginInfo = Login::where('t_is_active',1)->where('i_id',session()->get('user_id'))->orderBy('v_name', 'ASC')->first();
+			$loggedUserBuyerRoles = (!empty($userLoginInfo->v_record_type) ? explode(",", $userLoginInfo->v_record_type) : []);
+			$whereData['loggedUserBuyerRoles'] = $loggedUserBuyerRoles;
+			
+			if( !empty($loggedUserBuyerRoles) &&  ( in_array( config ( 'constants.GOODS_IN_WAREHOUSE')  , $loggedUserBuyerRoles  ) ) ){
+				$whereData['warehouse_id'] = (!empty($userLoginInfo->i_warehouse_id) ? $userLoginInfo->i_warehouse_id : 0);
+			}
+			
+			$getGoodInBuyerDetails = $this->goodInBuyerMasterModel->getGoodsInBuyerDetails($whereData);
+			
+			$data['disableForm'] = '';
+			$data['documentForm'] = '';
+			if(!empty($getGoodInBuyerDetails)){
+				$getGoodInBuyerType = (!empty($getGoodInBuyerDetails[0]['goodInBuyerMaster']['e_collection_type']) ? $getGoodInBuyerDetails[0]['goodInBuyerMaster']['e_collection_type'] :'');
+				if($getGoodInBuyerType == config('constants.DELIVERY')){
+					$data['goodInBuyerDeliveryDetails'] = $getGoodInBuyerDetails;
+					$html = view (config('constants.AJAX_VIEW_FOLDER') . 'good-in-logistic/good-in-logistic-delivery' )->with ( $data )->render();
+						
+				} else {
+					$data['deliveryTypeInfo'] = deliveryTypeInfo();
+					$data['warehouseRecordDetails'] = WarehouseMasterModel::where('e_record_type',config ( 'constants.WAREHOUSE'))->where('t_is_active',1)->orderBy('v_warehouse_name', 'ASC')->get();
+					$data['goodInBuyercollectionDetails'] = $getGoodInBuyerDetails;
+					$html = view (config('constants.AJAX_VIEW_FOLDER') . 'good-in-logistic/good-in-logistic-collection' )->with ( $data )->render();
+					
+				}
+			}
+			echo $html;die;
+		}
+	}
+	public function add(Request $request){
+		if (!empty($request->input())){
+			$recordId = (!empty($request->input('record_id')) ? (int)Wild_tiger::decode($request->input('record_id')) : 0 );
+			
+			if($recordId > 0 ){
+				$whereData = [];
+				$whereData['master_id'] = $recordId;
+				$whereData['edit_record'] = true;
+				
+				$goodInLogisticRecordDetail = $this->crudModel->getGoodsInLogisticMaster($whereData);
+				
+				if(checkPermission(config('permission_constants.EDIT_GOODS_IN_LOGISTIC')) != true ){
+					return redirect('access-denied');
+				}
+			} else {
+				if(checkPermission(config('permission_constants.ADD_GOODS_IN_LOGISTIC')) != true ){
+					return redirect('access-denied');
+				}
+			}
+			$deliveryCollection = (!empty($request->input('collection_delivery')) ? ($request->input('collection_delivery')) : '' );
+			$statusRecordId = (!empty($request->input('status')) ? (int)Wild_tiger::decode($request->input('status')) : 0 );
+			
+			$formValidation = [];
+			$formValidation['supplier_name'] = 'required';
+			$formValidation['collection_delivery'] = 'required';
+			
+			if($deliveryCollection == config('constants.DELIVERY')){
+				$formValidation['logistic_delivery'] = 'required';
+				$formValidation['delivery_type'] = 'required';
+				if(($statusRecordId == config('constants.DELIVERED_STATUS_ID')) || ($statusRecordId == config('constants.DELIVERED_BUT_DOCUMENT_PENDING_STATUS_ID'))){
+					$formValidation['delivery_delivery_date'] = 'required';
+				}
+				$formValidation['no_of_pallets_boxes'] = 'required';
+			}
+			
+			if($deliveryCollection == config('constants.COLLECTION')){
+				$formValidation['book_by'] = 'required';
+				$formValidation['logistic_partner'] = 'required';
+					
+				if(($statusRecordId == config('constants.DELIVERED_STATUS_ID')) || ($statusRecordId == config('constants.DELIVERED_BUT_DOCUMENT_PENDING_STATUS_ID'))){
+					$formValidation['collection_date'] = 'required';
+					$formValidation['delivery_date'] = 'required';
+				}
+			}
+			
+			if ($recordId > 0 && isset($goodInLogisticRecordDetail[0]) && !empty($goodInLogisticRecordDetail[0]) && !empty($goodInLogisticRecordDetail[0]->i_status_id) && in_array($goodInLogisticRecordDetail[0]->i_status_id, [config('constants.DELIVERED_STATUS_ID'), config('constants.DELIVERED_BUT_DOCUMENT_PENDING_STATUS_ID')])) {
+				$formValidation['goods_in_date'] = 'nullable';
+			} else {
+				$formValidation['goods_in_date'] = 'required';
+			}
+			
+			$formValidation['status'] = 'required';
+			
+			$validator = Validator::make ( $request->all (), $formValidation , [
+					'supplier_name.required' => __ ( 'messages.require-supplier-name' ),
+					'collection_delivery.required' => __ ( 'messages.require-collection-delivery' ),
+					'logistic_delivery.required' => __ ( 'messages.required-atleast-one-checkbox' ),
+					'delivery_type.required' => __ ( 'messages.require-delivery-type' ),
+					'book_by.required' => __ ( 'messages.require-book-by' ),
+					'logistic_partner.required' => __ ( 'messages.require-logistic-partner' ),
+					'status.required' => __ ( 'messages.require-status' ),
+					'collection_date.required' => __ ( 'messages.require-collection-date' ),
+					'delivery_date.required' => __ ( 'messages.require-delivery-date' ),
+					'no_of_pallets_boxes.required' => __ ( 'messages.require-no-of-pallets-boxes' ),
+					'delivery_delivery_date.required' => __ ( 'messages.require-delivery-date' ),
+					'goods_in_date.required' => trans('messages.required-enter-field-validation', ['fieldName' => trans('messages.goods-in-date')])
+			] );
+			
+			if ($validator->fails ()) {
+				return redirect()->back()->withErrors ( $validator )->withInput ();
+			}
+			
+			$selectedCheckBoxIds = (!empty($request->input('checkbox_collection')) ? ($request->input('checkbox_collection')) : []);
+			
+			if (!empty($request->input('collection_delivery')) && $request->input('collection_delivery') == config('constants.COLLECTION') && !empty($request->input('delivery_location'))){
+				$errorMessage = trans('messages.identical-delivery-location');
+				
+				$deliveryLocationId = $request->input('delivery_location');
+				
+				$decodedDeliveryLocationId = [];
+				if(!empty($deliveryLocationId)){
+					foreach($deliveryLocationId as $deliveryLocationKey => $deliveryLocation){
+						if(in_array( $deliveryLocationKey , array_keys($selectedCheckBoxIds))){
+							$decodedDeliveryLocationId[] = (int)Wild_tiger::decode($deliveryLocation);
+						}
+					}
+				}
+				
+				if (!empty($decodedDeliveryLocationId) && count(array_unique($decodedDeliveryLocationId)) != 1){
+					Wild_tiger::setFlashMessage ('danger', $errorMessage);
+					return redirect()->back();
+				}
+			}
+			
+			$successMessage =  trans('messages.success-create',['module'=>trans('messages.good-in-logistic')]);
+			$errorMessages = trans('messages.error-create',['module'=>trans('messages.good-in-logistic')]);
+			
+			$allGoodsInBuyerDetailIds = [];
+			DB::beginTransaction();
+			try{
+					
+				$goodInLogisticDocumentTypeCount = (!empty($request->input('good_in_logistic_document_type_count')) ? (int)($request->input('good_in_logistic_document_type_count')) : 1 );
+				$goodInLogisticTransporterCount = (!empty($request->input('good_in_logistic_transporter_count')) ? (int)($request->input('good_in_logistic_transporter_count')) : 1 );
+					
+				$recordData = [];
+				$recordData['e_logistic_collection_type'] = $deliveryCollection;
+				$recordData['v_supplier_ids'] = (!empty($request->input('supplier_name')) ? (int)Wild_tiger::decode($request->input('supplier_name')) : 0);
+				$recordData['i_goods_in_buyer_detail_id'] = $recordData['e_logistic_delivery_type'] = null;
+					
+				if($deliveryCollection == config('constants.DELIVERY')){
+					$recordData['i_goods_in_buyer_detail_id'] = (!empty($request->input('logistic_delivery')) ? (int)Wild_tiger::decode($request->input('logistic_delivery')) : 0 );
+					$recordData['e_logistic_delivery_type'] = (!empty($request->input('delivery_type')) ? ($request->input('delivery_type')) : null );
+					$recordData['dt_delivery_date'] = (!empty($request->input('delivery_delivery_date')) ? dbDate($request->input('delivery_delivery_date')) : null );
+					$recordData['i_no_of_pallet_box'] = (!empty($request->input('no_of_pallets_boxes')) ? ($request->input('no_of_pallets_boxes')) : null );
+					$recordData['e_dimension'] = (!empty($request->input('pallets_boxes_type')) ? ($request->input('pallets_boxes_type')) : config('constants.PALLET') );
+					$goodInBuyerUpdate['e_logistic_record_status'] = $recordData['e_logistic_delivery_type'];
+					$goodInBuyerUpdate['v_latest_logistic_status_id'] = $statusRecordId;
+					//$goodInBuyerUpdate['t_in_use'] = 1;
+					$allGoodsInBuyerDetailIds[] =  $recordData['i_goods_in_buyer_detail_id'];
+			
+					$this->crudModel->updateTableData( config('constants.GOODS_IN_BUYER_DETAIL_TABLE') , $goodInBuyerUpdate, [ 'i_id' => $recordData['i_goods_in_buyer_detail_id'] ]);
+			
+				}
+				if($deliveryCollection == config('constants.COLLECTION')){
+					$recordData['i_book_employee_id'] = (!empty($request->input('book_by')) ? (int)Wild_tiger::decode($request->input('book_by')) : 0 );
+					$recordData['i_logistic_partner_id'] = (!empty($request->input('logistic_partner')) ? (int)Wild_tiger::decode($request->input('logistic_partner')) : 0 );
+					$recordData['dt_collection_date'] = (!empty($request->input('collection_date')) ? dbDate($request->input('collection_date')) : null );
+					$recordData['dt_delivery_date'] = (!empty($request->input('delivery_date')) ? dbDate($request->input('delivery_date')) : null );
+					$recordData['v_booking_ref_no'] = (!empty($request->input('booking_ref_no')) ? trim($request->input('booking_ref_no')) : null );
+				}
+				$recordData['v_tracking_no'] = (!empty($request->input('tracking_no')) ? trim($request->input('tracking_no')) : null );
+				$recordData['v_tracking_link'] = (!empty($request->input('tracking_link')) ? trim($request->input('tracking_link')) : null );
+				$recordData['e_insurance_status'] = (!empty($request->input('insurance_status')) ? ($request->input('insurance_status')) : null );
+				$recordData['v_insurance_comment'] = (!empty($request->input('insurance_status_comments')) ? trim($request->input('insurance_status_comments')) : null );
+				$recordData['dt_goods_in_date'] = (!empty($request->input('goods_in_date')) ? dbDate($request->input('goods_in_date')) : null );
+				$recordData['i_status_id'] = $statusRecordId;
+				$recordData['v_status_comment'] = (!empty($request->input('status_comments')) ? trim($request->input('status_comments')) :null );
+					
+				$totalInvoiceAmount = 0;
+				$getAttachDocumentsFilePath = [];
+				$goodInLogisticDetails = [];
+				if($recordId > 0){
+			
+					$successMessage =  trans('messages.success-update',['module'=>trans('messages.good-in-logistic')]);
+					$errorMessages = trans('messages.error-update',['module'=>trans('messages.good-in-logistic')]);
+			
+					$goodInLogisticDetails = (isset($goodInLogisticRecordDetail) && !empty($goodInLogisticRecordDetail) ? $goodInLogisticRecordDetail[0] : []);
+			
+					if(!empty($goodInLogisticDetails->goodInLogisticInvoice)){
+						foreach ($goodInLogisticDetails->goodInLogisticInvoice as $goodInLogisticInvoiceDetail){
+			
+							$goodInLogisticInvoiceRecordId = $goodInLogisticInvoiceDetail->i_id;
+							if(!empty($request->input('edit_name_'.$goodInLogisticInvoiceRecordId))){
+								$goodInInvoice = [];
+								$goodInInvoice['i_logistic_partner_master_id'] = (!empty($request->input('edit_name_'.$goodInLogisticInvoiceRecordId)) ? (int)Wild_tiger::decode($request->input('edit_name_'.$goodInLogisticInvoiceRecordId)) : 0 );
+								$goodInInvoice['v_invoice_no'] = (!empty($request->input('edit_inv_no_'.$goodInLogisticInvoiceRecordId)) ? $request->input('edit_inv_no_'.$goodInLogisticInvoiceRecordId) :'' );
+								$goodInInvoice['d_freight_charge'] = (!empty($request->input('edit_freight_'.$goodInLogisticInvoiceRecordId)) ? $request->input('edit_freight_'.$goodInLogisticInvoiceRecordId) : 0 );
+								$goodInInvoice['d_custom_charge'] = (!empty($request->input('edit_custom_'.$goodInLogisticInvoiceRecordId)) ? $request->input('edit_custom_'.$goodInLogisticInvoiceRecordId) :0 );
+								$goodInInvoice['d_duty_charge'] = (!empty($request->input('edit_duty_'.$goodInLogisticInvoiceRecordId)) ? $request->input('edit_duty_'.$goodInLogisticInvoiceRecordId)  : 0 );
+								$goodInInvoice['d_other_charge'] = (!empty($request->input('edit_other_'.$goodInLogisticInvoiceRecordId)) ? $request->input('edit_other_'.$goodInLogisticInvoiceRecordId) :0 );
+								$goodInInvoice['d_vat_charge'] = (!empty($request->input('edit_vat_'.$goodInLogisticInvoiceRecordId)) ? $request->input('edit_vat_'.$goodInLogisticInvoiceRecordId) : 0 );
+								$totalCharges = $goodInInvoice['d_freight_charge'] + $goodInInvoice['d_custom_charge'] + $goodInInvoice['d_duty_charge'] + $goodInInvoice['d_other_charge'] + $goodInInvoice['d_vat_charge'];
+								$goodInInvoice['d_total_charge'] = $totalCharges;
+								$goodInInvoice['i_currency_id'] = (!empty($request->input('edit_amount_'.$goodInLogisticInvoiceRecordId)) ? (int)Wild_tiger::decode($request->input('edit_amount_'.$goodInLogisticInvoiceRecordId)) : 0);
+								$goodInInvoice['d_conversion_rate'] = (!empty($request->input('edit_cov_rate_'.$goodInLogisticInvoiceRecordId)) ? $request->input('edit_cov_rate_'.$goodInLogisticInvoiceRecordId) : 0);
+								$finalCharges = ($totalCharges * $goodInInvoice['d_conversion_rate']);
+								$goodInInvoice['d_final_charge'] = $finalCharges;
+									
+								if(!empty($finalCharges)){
+									$totalInvoiceAmount += $finalCharges;
+								}
+									
+								if($request->hasFile('edit_invoice_file_'.$goodInLogisticInvoiceRecordId)){
+									$uploadFile = $this->uploadMultipleFile($request, 'edit_invoice_file_'.$goodInLogisticInvoiceRecordId,'image_doc_pdf_xls');
+									if(isset($uploadFile['status']) && ( $uploadFile['status'] != false ) ){
+										$goodInInvoice['v_invoice_file_path'] = json_encode($uploadFile['filePath']);
+									} else {
+										DB::rollback();
+										Wild_tiger::setFlashMessage ( 'danger', isset($uploadFile['message']) ? $uploadFile['message'] : trans('messages.error-file-upload') );
+										return redirect ( $this->redirectUrl );
+									}
+								} else {
+									$removeFiles = (!empty($request->input('remove_invoice_'.$goodInLogisticInvoiceRecordId)) ? explode("," , $request->input('remove_invoice_'.$goodInLogisticInvoiceRecordId) ) : []  );
+									$previousUploadFiles = (!empty($goodInLogisticInvoiceDetail->v_invoice_file_path) ? json_decode($goodInLogisticInvoiceDetail->v_invoice_file_path,true) : [] );
+									$newFilesArray = [];
+									if(!empty($previousUploadFiles)){
+										foreach($previousUploadFiles as $previousUploadFile){
+											if(!in_array(basename($previousUploadFile) , $removeFiles )){
+												$newFilesArray[] = $previousUploadFile;
+											}
+										}
+									}
+									$goodInInvoice['v_invoice_file_path'] = (!empty($newFilesArray) ? json_encode($newFilesArray) : null );
+								}
+								if(($goodInInvoice['i_logistic_partner_master_id'] > 0) && (!empty($goodInInvoice['v_invoice_no']) ) ){
+									$goodInInvoiceUpdate = $this->crudModel->updateTableData( config('constants.GOODS_IN_LOGISTIC_INVOICE_TABLE') , $goodInInvoice , [ 'i_id' => $goodInLogisticInvoiceRecordId] );
+								}
+							} else {
+								$deleteRecordData = [];
+								$deleteRecordData ['t_is_active'] = 0;
+								$deleteRecordData ['t_is_deleted'] = 1;
+								$this->crudModel->deleteTableData( config('constants.GOODS_IN_LOGISTIC_INVOICE_TABLE') , $deleteRecordData , [ 'i_id' => $goodInLogisticInvoiceRecordId] );
+							}
+						}
+					}
+					
+					if(!empty($goodInLogisticDetails->goodInLogisticDocument) && count($goodInLogisticDetails->goodInLogisticDocument) > 0){
+						foreach ($goodInLogisticDetails->goodInLogisticDocument as $goodInLogisticDocumentDetail){
+							$goodInBuyerId = $goodInLogisticDocumentDetail->i_id;
+							if(!empty($request->input('edit_type_'.$goodInBuyerId))){
+								$goodInDocument = [];
+								$goodInDocument['i_document_type_id'] = (!empty($request->input('edit_type_'.$goodInBuyerId)) ? (int)Wild_tiger::decode($request->input('edit_type_'.$goodInBuyerId)) :0);
+								$goodInDocument['v_document_remark'] = (!empty($request->input('edit_remarks_'.$goodInBuyerId)) ? $request->input('edit_remarks_'.$goodInBuyerId) : null);
+									
+								if($request->hasFile('edit_file_'.$goodInBuyerId)){
+									$uploadFile = $this->uploadMultipleFile($request, 'edit_file_'.$goodInBuyerId,'image_doc_pdf_xls');
+									if(isset($uploadFile['status']) && ( $uploadFile['status'] != false ) ){
+										$goodInDocument['v_document_file_path'] = json_encode($uploadFile['filePath']);
+									} else {
+										DB::rollback();
+										Wild_tiger::setFlashMessage ( 'danger', isset($uploadFile['message']) ? $uploadFile['message'] : trans('messages.error-file-upload') );
+										return redirect ( $this->redirectUrl );
+									}
+								} else {
+									$removeFiles = (!empty($request->input('remove_document_'.$goodInBuyerId)) ? explode("," , $request->input('remove_document_'.$goodInBuyerId) ) : []  );
+									$previousUploadFiles = (!empty($goodInLogisticDocumentDetail->v_document_file_path) ? json_decode($goodInLogisticDocumentDetail->v_document_file_path,true) : [] );
+									
+									$newFilesArray = [];
+									if(!empty($previousUploadFiles)){
+										foreach($previousUploadFiles as $previousUploadFile){
+											if(!in_array(basename($previousUploadFile) , $removeFiles )){
+												$newFilesArray[] = $previousUploadFile;
+											}
+										}
+									}
+									$goodInDocument['v_document_file_path'] = (!empty($newFilesArray) ? json_encode($newFilesArray) : null );
+								}
+								if((!empty($goodInDocument ['i_document_type_id']))){
+									$goodInLogisticDocumentDetailUpdate = $this->crudModel->updateTableData( config('constants.GOODS_IN_LOGISTIC_DOCUMENT_TABLE') , $goodInDocument , [ 'i_id' => $goodInBuyerId] );
+									$getAttachDocumentsFilePath[] = $goodInDocument['v_document_file_path'];
+								}
+							} else {
+								$deleteRecordData = [];
+								$deleteRecordData ['t_is_active'] = 0;
+								$deleteRecordData ['t_is_deleted'] = 1;
+								$this->crudModel->deleteTableData( config('constants.GOODS_IN_LOGISTIC_DOCUMENT_TABLE') , $deleteRecordData , [ 'i_id' => $goodInBuyerId] );
+							}
+						}
+					}
+					
+					$result = $this->crudModel->updateTableData($this->tableName , $recordData , [ 'i_id' => $recordId] );
+					$insertRecord = $recordId;
+			
+				} else {
+					$goodILogisticGenerateNo = config('constants.GOOD_IN_LOGISTIC_GIL').'-'. config('constants.GOOD_IN_BUYER_NUMBER').'-'.$this->todayDate;
+						
+					$goodInLogisticMasterRecordDetails = $this->crudModel->selectData(config('constants.GOODS_IN_LOGISTIC_MASTER_TABLE') ,['i_id']);
+						
+					if(!empty($goodInLogisticMasterRecordDetails)){
+						$goodInLogisticMasterRecordCount = count($goodInLogisticMasterRecordDetails);
+						$count = ( ( (!empty($goodInLogisticMasterRecordCount)) && ( $goodInLogisticMasterRecordCount > 0 ) ) ? ( $goodInLogisticMasterRecordCount + 1  ) : 1 );
+						$generateNumber = threeNumberSeries($count);
+						$goodILogisticGenerateNo = config('constants.GOOD_IN_LOGISTIC_GIL').'-'. $generateNumber.'-'.$this->todayDate;
+					}
+					
+					$recordData['v_goods_in_logistic_master_no'] = $goodILogisticGenerateNo;
+			
+					$goodInBuyerUpdateRecordInfo['t_in_use'] = 1;
+					$goodInBuyerUpdateRecordInfo['v_latest_logistic_status_id'] = $statusRecordId;
+					
+					$this->crudModel->updateTableData(config('constants.GOODS_IN_BUYER_DETAIL_TABLE') , $goodInBuyerUpdateRecordInfo , [ 'i_goods_in_buyer_supplier_id' => $recordData['v_supplier_ids']] );
+					
+					$insertRecord = $this->crudModel->insertTableData($this->tableName , $recordData);
+				}
+					
+				if( $insertRecord > 0 ){
+					$result = true;
+				}
+				for ($i = 0; $i <= $goodInLogisticTransporterCount;$i++){
+					$rowData = [];
+					$rowData['i_goods_in_logistic_master_id'] = $insertRecord;
+					$rowData['i_logistic_partner_master_id'] = (!empty($request->input('name_'.$i)) ? (int)Wild_tiger::decode($request->input('name_'.$i)) : 0);
+					$rowData['v_invoice_no'] = (!empty($request->input('inv_no_'.$i)) ? $request->input('inv_no_'.$i) : '');
+					$rowData['d_freight_charge'] = (!empty($request->input('freight_'.$i)) ? ($request->input('freight_'.$i)) : null );
+					$rowData['d_custom_charge'] = (!empty($request->input('custom_'.$i)) ? ($request->input('custom_'.$i)) : null );
+					$rowData['d_duty_charge'] = (!empty($request->input('duty_'.$i)) ? ($request->input('duty_'.$i)) : null );
+					$rowData['d_other_charge'] = (!empty($request->input('other_'.$i)) ? ($request->input('other_'.$i)) : null );
+					$rowData['d_vat_charge'] = (!empty($request->input('vat_'.$i)) ? ($request->input('vat_'.$i)) : null );
+					$rowData['i_currency_id'] = (!empty($request->input('amount_'.$i)) ? (int)Wild_tiger::decode($request->input('amount_'.$i)) : 0 );
+					$rowData['d_conversion_rate'] = (!empty($request->input('cov_rate_'.$i)) ? ($request->input('cov_rate_'.$i)) : null );
+					$totalValue = $rowData['d_freight_charge'] + $rowData['d_custom_charge'] + $rowData['d_duty_charge'] + $rowData['d_other_charge'] + $rowData['d_vat_charge'];
+					$rowData['d_total_charge'] = $totalValue;
+					$totalCharges = $totalValue * $rowData['d_conversion_rate'];
+					$rowData['d_final_charge'] = $totalCharges;
+					$rowData['v_invoice_file_path'] = null;
+			
+					if(!empty($totalCharges)){
+						$totalInvoiceAmount += $totalCharges;
+					}
+			
+					if($request->hasFile('invoice_file_'.$i)){
+						$uploadFile = $this->uploadMultipleFile($request, 'invoice_file_'.$i,'image_doc_pdf_xls');
+						if(isset($uploadFile['status']) && ( $uploadFile['status'] != false ) ){
+							$rowData['v_invoice_file_path'] = json_encode($uploadFile['filePath']);
+						} else {
+							DB::rollback();
+							Wild_tiger::setFlashMessage ( 'danger', isset($uploadFile['message']) ? $uploadFile['message'] : trans('messages.error-file-upload') );
+							return redirect ( $this->redirectUrl );
+						}
+					}
+					if(($rowData ['i_logistic_partner_master_id'] > 0) && (!empty($rowData ['v_invoice_no']))){
+						$insertGoodInLogisticInvoice = $this->crudModel->insertTableData( config('constants.GOODS_IN_LOGISTIC_INVOICE_TABLE') , $rowData);
+					}
+				}
+					
+				if($deliveryCollection == config('constants.COLLECTION')){
+					$previousSelectedCollectationRecordIds = [];
+					$previousSelectedCollectations = ( (isset($goodInLogisticDetails->goodInLogisticCollection) && (!empty($goodInLogisticDetails->goodInLogisticCollection))) ? objectToArray($goodInLogisticDetails->goodInLogisticCollection) : [] );
+					if(!empty($previousSelectedCollectations)){
+						$previousSelectedCollectationRecordIds = array_column($previousSelectedCollectations, 'i_goods_in_buyer_detail_id');
+					}
+			
+					$collectionDeliveryTypes = (!empty($request->input('collection_delivery_type')) ? ($request->input('collection_delivery_type')) : '' );
+					$deliveryLocationIds = (!empty($request->input('delivery_location')) ? ($request->input('delivery_location')) : "" );
+					$checkboxCollectionIds = (!empty($request->input('checkbox_collection')) ? ($request->input('checkbox_collection')) : []);
+					$deliveryRemarks = (!empty($request->input('delivery_remarks')) ? ($request->input('delivery_remarks')) : null );
+			
+					if(!empty($checkboxCollectionIds)){
+						foreach ($checkboxCollectionIds as $key => $checkboxCollectionId){
+							if(!empty($checkboxCollectionId)){
+								$selectedGoodsInBuyerDetailId = (int)Wild_tiger::decode($checkboxCollectionId);
+								$rowData = [] ;
+								$rowData['e_collection_delivery_type'] = (isset($collectionDeliveryTypes[$key]) ? $collectionDeliveryTypes[$key]  : '');
+								$rowData['i_collection_delivery_location_id'] = (isset($deliveryLocationIds[$key]) ? (int)Wild_tiger::decode($deliveryLocationIds[$key]) : 0);
+								$rowData['dt_collection_delivery_remark'] = (isset($deliveryRemarks[$key]) ? $deliveryRemarks[$key] : null);
+								$rowData['i_goods_in_buyer_detail_id'] = (isset($checkboxCollectionId) ? (int)Wild_tiger::decode($checkboxCollectionId) : 0);
+								$allGoodsInBuyerDetailIds[] =  $rowData['i_goods_in_buyer_detail_id'];
+								$goodInBuyerUpdate['e_logistic_record_status'] = $rowData['e_collection_delivery_type'];
+								$goodInBuyerUpdate['v_latest_logistic_status_id'] = $statusRecordId;
+								$this->crudModel->updateTableData( config('constants.GOODS_IN_BUYER_DETAIL_TABLE') , $goodInBuyerUpdate, [ 'i_id' => $rowData['i_goods_in_buyer_detail_id'] ]);
+									
+								if((!empty($previousSelectedCollectationRecordIds)) && (in_array($selectedGoodsInBuyerDetailId,$previousSelectedCollectationRecordIds))){
+									$searchPreviousRecordKey = array_search($selectedGoodsInBuyerDetailId,$previousSelectedCollectationRecordIds);
+									if(strlen($searchPreviousRecordKey) > 0 ){
+										$this->crudModel->updateTableData( config('constants.GOODS_IN_LOGISTIC_COLLECTION_TABLE') , $rowData, [ 'i_id' => $previousSelectedCollectations[$searchPreviousRecordKey]['i_id'] ]);
+										unset($previousSelectedCollectations[$searchPreviousRecordKey]);
+									}
+										
+								} else {
+									$rowData['i_goods_in_logistic_master_id'] = $insertRecord;
+									if( (empty($rowData['e_collection_delivery_type'])) || (empty($rowData['i_collection_delivery_location_id'])) ){
+										DB::rollback();
+										Wild_tiger::setFlashMessage ( 'danger', trans('messages.system-administrator'));
+										return redirect ( $this->redirectUrl );
+									}
+									$this->crudModel->insertTableData( config('constants.GOODS_IN_LOGISTIC_COLLECTION_TABLE') , $rowData );
+								}
+							}
+						}
+					}
+					if(!empty($previousSelectedCollectations)){
+						foreach($previousSelectedCollectations as $previousSelectedCollectation){
+							$deleteRecordData = [];
+							$deleteRecordData ['t_is_active'] = 0;
+							$deleteRecordData ['t_is_deleted'] = 1;
+							$this->crudModel->deleteTableData( config('constants.GOODS_IN_LOGISTIC_COLLECTION_TABLE') , $deleteRecordData , [ 'i_id' => $previousSelectedCollectation['i_id'] ] );
+						}
+					}
+				}
+					
+				for ($i = 0; $i <= $goodInLogisticDocumentTypeCount;$i++){
+					$rowData = [];
+					$rowData['i_goods_in_logistic_master_id'] = $insertRecord;
+					//$rowData['i_goods_in_logistic_collection_id'] = null;
+					$rowData['i_document_type_id'] = (!empty($request->input('type_'.$i)) ? (int)Wild_tiger::decode($request->input('type_'.$i)) :0);
+					$rowData['v_document_remark'] = (!empty($request->input('remarks_'.$i)) ? $request->input('remarks_'.$i) : null);
+					$rowData['v_document_file_path'] = null;
+			
+					if($request->hasFile('file_'.$i)){
+						$uploadFile = $this->uploadMultipleFile($request, 'file_'.$i,'image_doc_pdf_xls');
+						if(isset($uploadFile['status']) && ( $uploadFile['status'] != false ) ){
+							$rowData['v_document_file_path'] = json_encode($uploadFile['filePath']);
+							$getAttachDocumentsFilePath[] = $rowData['v_document_file_path']; 
+						} else {
+							DB::rollback();
+							Wild_tiger::setFlashMessage ( 'danger', isset($uploadFile['message']) ? $uploadFile['message'] : trans('messages.error-file-upload') );
+							return redirect ( $this->redirectUrl );
+						}
+					}
+					if( (!empty($rowData ['v_document_file_path'])) && (!empty($rowData ['i_document_type_id']))){
+						$insertGoodInLogisticDocumentDetail = $this->crudModel->insertTableData( config('constants.GOODS_IN_LOGISTIC_DOCUMENT_TABLE') , $rowData);
+					}
+				}
+				$this->crudModel->updateTableData( config('constants.GOODS_IN_LOGISTIC_MASTER_TABLE') , [ 'd_invoice_total' =>$totalInvoiceAmount , 'i_goods_in_buyer_detail_id' => (!empty($allGoodsInBuyerDetailIds)  ? implode("," , array_unique($allGoodsInBuyerDetailIds)) : null ) ] , [ 'i_id' => $insertRecord ] );
+					
+				if(!empty($allGoodsInBuyerDetailIds)){
+					GoodInBuyerDetailModel::whereIn('i_id', array_unique($allGoodsInBuyerDetailIds))->update([
+							't_in_use' => 1,
+							'i_updated_id' => session()->get('user_id'),
+							'dt_updated_at' => date('Y-m-d H:i:s')
+					]);
+				}
+				if((!empty($statusRecordId)) && ($statusRecordId == config('constants.DELIVERED_STATUS_ID'))){
+				/* Skip mail if the user chose "No, Save Only" in the popup */
+				$skipMail = (!empty($request->input('skip_mail')) && $request->input('skip_mail') == '1');
+				if (!$skipMail) {
+					$getBuyerRecordWhere = [];
+					$getBuyerRecordWhere['master_id'] = $allGoodsInBuyerDetailIds;
+					$allUsedBuyerRecordDetails = $this->goodInBuyerMasterModel->getGoodsInBuyerDetails($getBuyerRecordWhere);
+					
+					$finalMailInsertData = [];
+					if(!empty($allUsedBuyerRecordDetails)){
+						foreach($allUsedBuyerRecordDetails as $allUsedBuyerRecordDetail){
+							$poSalesInvoiceNo = (!empty($allUsedBuyerRecordDetail->goodInBuyerMaster->v_po_sales_invoice_no) ? $allUsedBuyerRecordDetail->goodInBuyerMaster->v_po_sales_invoice_no : '');
+							$warehouseName = (!empty($allUsedBuyerRecordDetail->goodInBuyerMaster->warehouseMaster->v_warehouse_name) ? $allUsedBuyerRecordDetail->goodInBuyerMaster->warehouseMaster->v_warehouse_name : '');
+							
+							$buyerIdsAndEmails = (isset($allUsedBuyerRecordDetail->goodInBuyerMaster->employeeBuyerNameMaster) && count($allUsedBuyerRecordDetail->goodInBuyerMaster->employeeBuyerNameMaster) > 0 ? $allUsedBuyerRecordDetail->goodInBuyerMaster->employeeBuyerNameMaster->pluck('v_email', 'i_id')->toArray() : []);
+							$userbuyerIdsAndEmails = (isset($allUsedBuyerRecordDetail->goodInBuyerMaster->userBuyerNameMaster) && count($allUsedBuyerRecordDetail->goodInBuyerMaster->userBuyerNameMaster) > 0 ? $allUsedBuyerRecordDetail->goodInBuyerMaster->userBuyerNameMaster->pluck('v_email', 'i_id')->toArray() : []);
+							
+							$allMailArray = [];
+							
+							$getBuyerAndUserBuyerMailIds = [];
+							if (!empty($buyerIdsAndEmails)){
+								foreach ($buyerIdsAndEmails as $loginId => $email){
+									if (!empty($email)){
+										$allMailArray[] = $email;
+										$getBuyerAndUserBuyerMailIds[$loginId] = $email;
+									}
+								}
+							}
+							
+							if (!empty($userbuyerIdsAndEmails)){
+								foreach ($userbuyerIdsAndEmails as $loginId => $email){
+									if (!empty($email)){
+										$allMailArray[] = $email;
+										$getBuyerAndUserBuyerMailIds[$loginId] = $email;
+									}
+								}
+							}
+							
+							$warehouseMailArray = (isset($allUsedBuyerRecordDetail->goodInBuyerMaster->warehouseMaster) && !empty($allUsedBuyerRecordDetail->goodInBuyerMaster->warehouseMaster->v_warehouse_email) ? explode(',', $allUsedBuyerRecordDetail->goodInBuyerMaster->warehouseMaster->v_warehouse_email) : '');
+							
+							if (!empty($warehouseMailArray)){
+								$allMailArray = array_merge($allMailArray, $warehouseMailArray);
+							}
+							
+							$companyMailArray = (isset($allUsedBuyerRecordDetail->goodInBuyerMaster->companyMaster) && !empty($allUsedBuyerRecordDetail->goodInBuyerMaster->companyMaster->v_email) ? explode(',', $allUsedBuyerRecordDetail->goodInBuyerMaster->companyMaster->v_email) : []);
+							if (!empty($companyMailArray)){
+								$allMailArray = array_merge($allMailArray, $companyMailArray);
+							}
+							$allMailArray = array_unique(array_filter($allMailArray));
+							if (!empty($allMailArray)){
+								$mailData = [];
+								$mailData['poSalesInvoiceNo'] = $poSalesInvoiceNo;
+								if (!empty($request->input('collection_delivery')) && $request->input('collection_delivery') == config('constants.DELIVERY')){
+									$mailData['palletsBoxesType'] = (!empty($request->input('pallets_boxes_type')) ? $request->input('pallets_boxes_type') : '');
+									$mailData['noOfPalletBox'] = (!empty($request->input('no_of_pallets_boxes')) ? $request->input('no_of_pallets_boxes') : '');
+								} else {
+									$mailData['palletsBoxesType'] = (!empty($allUsedBuyerRecordDetail->goodInBuyerMaster->e_pallet_box_type) ? $allUsedBuyerRecordDetail->goodInBuyerMaster->e_pallet_box_type : '');
+									$mailData['noOfPalletBox'] = (!empty($allUsedBuyerRecordDetail->goodInBuyerMaster->i_no_of_pallet_box) ? $allUsedBuyerRecordDetail->goodInBuyerMaster->i_no_of_pallet_box : '');
+								}
+									
+								$mailData['warehouseName'] = $warehouseName;
+								$mailData['supplierName'] = (!empty($allUsedBuyerRecordDetail->goodInBuyerMaster->supplierMaster->v_supplier_name) ? $allUsedBuyerRecordDetail->goodInBuyerMaster->supplierMaster->v_supplier_name : '');
+								$mailData['warehouseComment'] = (isset($recordData['v_status_comment']) && !empty($recordData['v_status_comment']) ? $recordData['v_status_comment'] : '');
+								$mailData['withAttachment'] = false;
+								
+								$mailAttachment = [];
+								if (!empty($getAttachDocumentsFilePath) && is_array($getAttachDocumentsFilePath)){
+									foreach ($getAttachDocumentsFilePath as $attachments) {
+										$mailAttachment = (!empty($mailAttachment) ? array_merge($mailAttachment,json_decode($attachments, true)) : json_decode($attachments, true));
+									}
+								}
+								
+								$finalMailAttachment = [];
+								if (!empty($mailAttachment)){
+									$finalMailAttachment = array_map(function ($attachmentPath){
+										return config('constants.FILE_STORAGE_FILE_PATH').$attachmentPath;
+									}, $mailAttachment);
+								}
+								
+								$config = [];
+								if (!empty($finalMailAttachment)){
+									$config['attachment'] = $finalMailAttachment;
+									$mailData['withAttachment'] = true;
+								}
+								
+								$config['viewName'] = 'admin/buyer-ack';
+								$config['mailData'] = $mailData;
+								$config['subject'] = $poSalesInvoiceNo . ' GOODS DELIVERED TO ' . $warehouseName;
+								
+								$emailHistoryRecord = [];
+								$emailHistoryRecord['i_good_in_buyer_id'] = (isset($allUsedBuyerRecordDetail->goodInBuyerMaster) && !empty($allUsedBuyerRecordDetail->goodInBuyerMaster->i_id) ? $allUsedBuyerRecordDetail->goodInBuyerMaster->i_id : null);
+								$emailHistoryRecord['v_subject'] = (!empty($config ['subject']) ? $config ['subject'] : null);
+								$emailHistoryRecord['v_content'] = view('admin/buyer-ack')->with($mailData)->render();
+								
+								$config['receiverEmail'] = $allMailArray;
+								
+								$sendMail = [];
+								
+								try{
+									$sendMail = sendMailSMTP($config);
+								}catch(Exception $e){
+									Log::error($e->getMessage());
+								}
+								
+								if(!empty($sendMail) && isset($sendMail['status']) && $sendMail['status'] != false){
+									$emailHistoryRecord['e_status'] = config('constants.SUCCESS_STATUS');
+								} else {
+									$emailHistoryRecord['e_status'] = config('constants.FAILED_STATUS');
+									$emailHistoryRecord['v_response'] = (!empty($sendMail['msg']) ? $sendMail['msg'] : null);
+								}
+								
+								$buyerAndUserBuyerMailInsertData = [];
+								if (!empty($getBuyerAndUserBuyerMailIds)){
+									$buyerAndUserBuyerMailInsertData = array_map(function($mail) use ($emailHistoryRecord, $getBuyerAndUserBuyerMailIds){
+										$searchKey = array_search($mail, $getBuyerAndUserBuyerMailIds);
+								
+										$insertMailData = [];
+										$insertMailData['i_login_user_id'] = (strlen($searchKey) > 0 ? $searchKey : null);
+										$insertMailData['i_good_in_buyer_id'] = $emailHistoryRecord['i_good_in_buyer_id'];
+										$insertMailData['v_received_email'] = $mail;
+										$insertMailData['v_subject'] = $emailHistoryRecord['v_subject'];
+										$insertMailData['v_content'] = $emailHistoryRecord['v_content'];
+										$insertMailData['v_response'] = (isset($emailHistoryRecord['v_response']) ? $emailHistoryRecord['v_response'] : null);
+										$insertMailData['e_status'] = $emailHistoryRecord['e_status'];
+										$insertMailData = array_merge($insertMailData, $this->crudModel->insertDateTimeData());
+										return $insertMailData;
+									}, $getBuyerAndUserBuyerMailIds);
+								}
+								
+								$companyMailInsertData = [];
+								if (!empty($companyMailArray)){
+									$companyMailInsertData = array_map(function($mail) use ($emailHistoryRecord){
+										$insertMailData = [];
+										$insertMailData['i_login_user_id'] = null;
+										$insertMailData['i_good_in_buyer_id'] = $emailHistoryRecord['i_good_in_buyer_id'];
+										$insertMailData['v_received_email'] = $mail;
+										$insertMailData['v_subject'] = $emailHistoryRecord['v_subject'];
+										$insertMailData['v_content'] = $emailHistoryRecord['v_content'];
+										$insertMailData['v_response'] = (isset($emailHistoryRecord['v_response']) ? $emailHistoryRecord['v_response'] : null);
+										$insertMailData['e_status'] = $emailHistoryRecord['e_status'];
+										$insertMailData = array_merge($insertMailData, $this->crudModel->insertDateTimeData());
+										return $insertMailData;
+									}, $companyMailArray);
+								}
+									
+								$deliveryLocationMailInsertData = [];
+								if (!empty($warehouseMailArray)){
+									$deliveryLocationMailInsertData = array_map(function($mail) use ($emailHistoryRecord){
+										$insertMailData = [];
+										$insertMailData['i_login_user_id'] = null;
+										$insertMailData['i_good_in_buyer_id'] = $emailHistoryRecord['i_good_in_buyer_id'];
+										$insertMailData['v_received_email'] = $mail;
+										$insertMailData['v_subject'] = $emailHistoryRecord['v_subject'];
+										$insertMailData['v_content'] = $emailHistoryRecord['v_content'];
+										$insertMailData['v_response'] = (isset($emailHistoryRecord['v_response']) ? $emailHistoryRecord['v_response'] : null);
+										$insertMailData['e_status'] = $emailHistoryRecord['e_status'];
+										$insertMailData = array_merge($insertMailData, $this->crudModel->insertDateTimeData());
+										return $insertMailData;
+									}, $warehouseMailArray);
+								}
+									
+								if (!empty($buyerAndUserBuyerMailInsertData)){
+									$finalMailInsertData = array_merge($finalMailInsertData,$buyerAndUserBuyerMailInsertData);
+								}
+								if (!empty($companyMailInsertData)){
+									$finalMailInsertData = array_merge($finalMailInsertData,$companyMailInsertData);
+								}
+								if (!empty($deliveryLocationMailInsertData)){
+									$finalMailInsertData = array_merge($finalMailInsertData,$deliveryLocationMailInsertData);
+								}
+							}
+						}
+						if (!empty($finalMailInsertData)){
+							DB::table(config('constants.EMAIL_HISTORY_TABLE'))->insert($finalMailInsertData);
+						}
+					}
+				}
+				} // end if (!$skipMail)
+					
+				$allStatusIds = $rowData = [];
+					
+				if(!empty($allGoodsInBuyerDetailIds)){
+					if( ( $recordId > 0 )  && (!empty($goodInLogisticDetails->i_goods_in_buyer_detail_id)) ){
+						$allGoodsInBuyerDetailIds = array_unique( array_merge($allGoodsInBuyerDetailIds , explode("," , $goodInLogisticDetails->i_goods_in_buyer_detail_id )) );
+					}
+					foreach($allGoodsInBuyerDetailIds as $allGoodsInBuyerDetailId){
+							
+						$allGoodInLogisticDetails = GoodInLogisticMasterModel::whereRaw(  "find_in_set( '".$allGoodsInBuyerDetailId."'  , i_goods_in_buyer_detail_id   )" )->get();
+							
+						$displayGoodInBuyerRecord = false;
+						$rowData = [];
+						$rowData['t_is_all_delivered_cancelled_ststus'] = 1;
+						if(count($allGoodInLogisticDetails) > 0 ){
+							if(!empty($allGoodInLogisticDetails)){
+								foreach($allGoodInLogisticDetails as $allGoodInLogisticDetail){
+									if((!empty($allGoodInLogisticDetail->i_status_id)) &&  !in_array( $allGoodInLogisticDetail->i_status_id , [ config("constants.DELIVERED_STATUS_ID") , config("constants.STATIC_STATUS_CANCELLED_ID")  ] ) ){
+										$displayGoodInBuyerRecord = true;
+									}
+			
+								}
+							}
+						} else {
+							$rowData['t_is_all_delivered_cancelled_ststus'] = 0;
+						}
+						if($displayGoodInBuyerRecord == true ){
+							$rowData['t_is_all_delivered_cancelled_ststus'] = 0;
+						}
+						$this->crudModel->updateTableData( config('constants.GOODS_IN_BUYER_DETAIL_TABLE') , $rowData, [ 'i_id' => $allGoodsInBuyerDetailId]);
+							
+					}
+				}
+					
+				$result = true;
+			}catch(\Exception $e){
+				DB::rollback();
+				Log::error($e->getMessage());
+				$result = false;
+			}
+			
+			if( $result != false ){
+			
+				DB::commit();
+			
+				Wild_tiger::setFlashMessage ( 'success', $successMessage  );
+			
+				return redirect ( $this->redirectUrl );
+			
+			}
+			DB::rollback();
+				
+			Wild_tiger::setFlashMessage ( 'danger', $errorMessages  );
+			return redirect()->back()->withErrors ( $validator )->withInput ();
+		}
+	}
+	public function edit($id){
+		if(isset($this->secondUriSegment) && ( $this->secondUriSegment == 'edit' )){
+			if(checkPermission(config('permission_constants.EDIT_GOODS_IN_LOGISTIC')) != true ){
+				return redirect('access-denied');
+			}
+		}
+		$errorFound = true;
+		$recordId = (int) Wild_tiger::decode($id);
+		if( $recordId > 0 ){
+			$whereData = $data = $buyerWhereData = [];
+			$whereData['master_id'] = $recordId;
+			$whereData['edit_record'] = true;
+			$data['pageTitle'] = trans('messages.update-good-in-logistic');
+			$recordInfo = $this->crudModel->getGoodsInLogisticMaster($whereData);
+			
+			if(count($recordInfo) > 0){
+				$errorFound = false;
+				$data['collectionDeliveryInfo'] = collectionDeliveryInfo();
+				$data['supplierRecordDetails'] = SupplierMasterModel::orderBy('v_supplier_name', 'ASC')->get();
+				$data['deliveryTypeInfo'] = deliveryTypeInfo();
+				$data['documentTypeRecordDetails'] = Document_Type_Master_Model::where('e_document_type' , config ( 'constants.LOGISTIC') )->orderBy('v_document_type_name', 'ASC')->get();
+				$data['currencyRecordDetails'] = CurrencyMasterModel::orderBy('v_currency_code', 'ASC')->get();
+				$data['userRecordDetails'] = Login::where('v_role',config ( 'constants.ROLE_USER'))->whereRaw("find_in_set('".config("constants.LOGISTIC")."',v_record_type)")->orderBy('v_name', 'ASC')->get();
+				$data['logisticPartnerDetails'] = LogisticPartnerDetailModel::with(['logisticPartnerMaster'])->get();
+				$data['warehouseRecordDetails'] = WarehouseMasterModel::where('e_record_type',config ( 'constants.WAREHOUSE'))->orderBy('v_warehouse_name', 'ASC')->get();
+				$data['statusMasterRecordDetails'] = StatusMasterModel::orderBy('i_sequence', 'ASC')->get();
+				$data['insuranceStatusDetails'] = insuranceStatus();
+				$data['logisticPartnerRecordDetails'] = LogisticPartnerMasterModel::orderBy('v_logistic_partner_name', 'ASC')->get();
+				$data ['recordInfo'] = (isset($recordInfo[0]) ? $recordInfo[0] : []);
+				
+				if(isset($data['recordInfo']->v_supplier_ids) && (!empty($data['recordInfo']->v_supplier_ids))){
+					$buyerWhereData['supplier'] = explode("," , $data['recordInfo']->v_supplier_ids );
+				}
+				
+				$buyerWhereData['collection_type'] = $data['recordInfo']['e_logistic_collection_type'];
+				
+				/* if( $data['recordInfo']['e_logistic_collection_type'] == config('constants.COLLECTION')){ */
+					$allUsedRecordIds = ( isset($recordInfo[0]['goodInLogisticCollection']) ? array_column(Wild_tiger::objectToArray($recordInfo[0]['goodInLogisticCollection']), 'i_goods_in_buyer_detail_id') : [] ) ;
+					if(!empty($allUsedRecordIds)){
+						$buyerWhereData['master_id'] = $allUsedRecordIds;
+					}
+				/* } */
+					//echo '<pre>';print_r($buyerWhereData);
+				if( $data['recordInfo']['e_logistic_collection_type'] == config('constants.DELIVERY')){
+					$buyerWhereData['master_id'] = [ $data['recordInfo']['i_goods_in_buyer_detail_id'] ];
+				}
+				
+				//$buyerWhereData['un_process_record'] = true;
+				$data['getGoodInBuyerDetails'] = $this->goodInBuyerMasterModel->getGoodsInBuyerDetails($buyerWhereData);
+				
+				//echo "<pre>";print_r(count($data['getGoodInBuyerDetails']));die;
+				
+				$data['deliveryTypeInfo'] = deliveryTypeInfo();
+				$data['warehouseRecordDetails'] = WarehouseMasterModel::where('e_record_type',config ( 'constants.WAREHOUSE'))->where('t_is_active',1)->orderBy('v_warehouse_name', 'ASC')->get();
+				
+				$disableForm = '';
+				$documentForm = '';
+				$invoiceForm = '';
+				$viewRequest = false;
+				if( isset($this->secondUriSegment) && ( $this->secondUriSegment == 'view' ) ){
+					$data['pageTitle'] = trans('messages.view-good-in-logistic');
+					$disableForm = 'disabled';
+					$documentForm = 'disabled';
+					$invoiceForm = 'disabled';
+					$statusDisableForm = 'disabled';
+					$viewRequest = true;
+				}
+				if( $recordInfo[0]->t_in_use == 1 ){
+					$disableForm = 'disabled';
+					$invoiceForm = 'disabled';
+					/* t_in_use=1 means the buyer detail is linked to a logistic record.
+					 */
+
+					$invoiceForm = '';
+				}
+				
+				$statusDisableForm = '';
+				if( isset($data ['recordInfo']->i_status_id) && (  in_array( $data ['recordInfo']->i_status_id , [ config('constants.DELIVERED_STATUS_ID')  ] ) ) ){
+					if(empty($documentForm) && ( session()->get('role') == config('constants.ROLE_ADMIN') ) ){
+					   /* DELIVERED records are fully editable — admin can re-open and change status.
+					   The mail popup in the view handles whether to re-send the notification. */
+						$statusDisableForm = '';
+						} else {
+						$statusDisableForm = 'disabled';
+					}
+					$disableForm = 'disabled';
+					$documentForm = 'disabled';
+					if(isset($data['recordInfo']->e_logistic_collection_type) && $data ['recordInfo']->e_logistic_collection_type != config('constants.COLLECTION')){
+						$invoiceForm = 'disabled';
+					}
+				}
+				
+				if( isset($data ['recordInfo']->i_status_id) && (  in_array( $data ['recordInfo']->i_status_id , [ config('constants.DELIVERED_BUT_DOCUMENT_PENDING_STATUS_ID') ] ) ) ){
+					$disableForm = 'disabled';
+					if(isset($data['recordInfo']->e_logistic_collection_type) && $data ['recordInfo']->e_logistic_collection_type != config('constants.COLLECTION')){
+						$invoiceForm = 'disabled';
+					}
+				}
+				if ($this->secondUriSegment == 'view'){
+					$statusDisableForm = 'disabled';
+				}
+				$data['disableForm'] = $disableForm;
+				$data['documentForm'] = $documentForm;
+				$data['invoiceForm'] = $invoiceForm;
+				$data['statusDisableForm'] = $statusDisableForm;
+				$data['viewRequest'] = $viewRequest;
+			}
+		}
+		
+		if( $errorFound != false ){
+			return redirect ( config('constants.404_PAGE') );
+		}
+		
+		return view ( $this->folderName . 'add-good-in-logistic' )->with ( $data );
+	}
+	
+	public function delete(Request $request){
+		if(checkPermission(config('permission_constants.DELETE_GOODS_IN_LOGISTIC')) != true ){
+			return redirect('access-denied');
+		}
+		return redirect ( $this->redirectUrl );
+		if(!empty($request->input())){
+			$recordId = (!empty($request->input('delete_record_id')) ? (int)Wild_tiger::decode( $request->input('delete_record_id') ) : 0 );
+			$goodInLogisticDetailData['t_is_active'] = 0;
+			$goodInLogisticDetailData['t_is_deleted'] = 1;
+			$successMessage =  trans('messages.success-delete',['module'=>trans('messages.good-in-logistic')]);
+			$errorMessages = trans('messages.error-delete',['module'=>trans('messages.good-in-logistic')]);
+				
+			DB::beginTransaction();
+		
+			$result = false;
+			try{
+				$this->crudModel->deleteTableData(  config('constants.GOODS_IN_LOGISTIC_COLLECTION_TABLE') ,  $goodInLogisticDetailData , [ 'i_goods_in_logistic_master_id' => $recordId ] );
+				$this->crudModel->deleteTableData(  config('constants.GOODS_IN_LOGISTIC_DOCUMENT_TABLE') ,  $goodInLogisticDetailData , [ 'i_goods_in_logistic_master_id' => $recordId ] );
+				$this->crudModel->deleteTableData(  config('constants.GOODS_IN_LOGISTIC_INVOICE_TABLE') ,  $goodInLogisticDetailData , [ 'i_goods_in_logistic_master_id' => $recordId ] );
+				
+				$this->crudModel->deleteTableData($this->tableName,  $goodInLogisticDetailData , [ 'i_id' => $recordId ] );
+		
+				$result = true;
+			}catch(\Exception $e){
+					
+			}
+			if( $result != false ){
+					
+				DB::commit();
+					
+				Wild_tiger::setFlashMessage ( 'success', $successMessage );
+					
+				return redirect()->back();
+			}
+			else {
+					
+				DB::rollback();
+					
+				Wild_tiger::setFlashMessage ( 'danger',$errorMessages);
+					
+				return redirect()->back();
+			}
+		} 
+	}
+	public function getSupplierInfo(Request $request){
+		if (!empty($request->input())){
+			$deliveryCollection = (!empty($request->post('delevery_collection')) ? $request->post('delevery_collection')  : '');
+			$supplierId = (!empty($request->post('supplier_name')) ? (int)Wild_tiger::decode($request->post('supplier_name')) : 0 );
+				
+			$supplierRecordDetails = SupplierMasterModel::where('t_is_active',1)->orderBy('v_supplier_name', 'ASC')->get();
+				
+			$html = '<option value="">'.trans("messages.select").'</option>';
+			if(!empty($supplierRecordDetails)){
+				foreach ($supplierRecordDetails as $supplierRecordDetail){
+					$encodeSupplierId  = Wild_tiger::encode($supplierRecordDetail->i_id);
+					$selected = '';
+					if((!empty($supplierId) ) && ($supplierId == $supplierRecordDetail->i_id ) ){
+						$selected = "selected='selected'";
+					}
+					$html .= '<option value="'.$encodeSupplierId.'" '.$selected.'>'.(!empty($supplierRecordDetail->v_supplier_name) ? $supplierRecordDetail->v_supplier_name : '' ) . '</option>';
+				}
+			}
+			echo $html;die;
+		}
+	}
+}

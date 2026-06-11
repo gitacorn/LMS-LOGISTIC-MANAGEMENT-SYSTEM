@@ -1,0 +1,20 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Traits\MySoftDeletes;
+use App\BaseModel;
+
+class CountryToPortGoodsOutShipmentModel extends BaseModel
+{
+	use HasFactory, MySoftDeletes;
+    protected $table = '';
+    protected $primaryKey = 'i_id';
+    protected $dates = ['dt_deleted_at'];
+    
+    public function __construct(){
+    	parent::__construct();
+    	$this->table = config('constants.COUNTRY_TO_PORT_GOODS_OUT_SHIPMENT_VALUES_TABLE');
+    }
+}

@@ -1,0 +1,24 @@
+<?php
+
+namespace App;
+use App\BaseModel;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Traits\CountrytoPortEuropeTransferModel;
+use App\Login;
+use App\Traits\MySoftDeletes;
+class CountrytoPortEuropeTransferDocumentModel extends BaseModel
+{
+use HasFactory,MySoftDeletes;
+    protected  $table = '';
+    protected $primaryKey = 'i_id';
+    protected $dates = ['dt_deleted_at'];
+    
+    public function __construct(){
+    	parent::__construct();
+    	$this->table = config('constants.GOODS_OUT_EUROPE_TRANSFER_DOCUMENT_MASTER_TABLE');
+    }
+    
+    public function countryToPortEuropeTransfer(){
+    	return $this->belongsTo(CountrytoPortEuropeTransferModel::class , 'i_europe_transfer_master_id');
+    }
+}
