@@ -706,7 +706,7 @@ if(!function_exists('getFirstLastDayOfMonth')){
 	function getFirstLastDayOfMonth( $date , $type = 'first'){
 		$result = '';
 		$dateObj = DateTime::createFromFormat('m-Y', $date);
-		if( !empty($date) && (!empty($type)) ){
+		if( !empty($date) && (!empty($type)) && $dateObj instanceof DateTime ){
 			$dateObj->modify($type.' day of this month');
 			$result = $dateObj->format('Y-m-d');
 		}

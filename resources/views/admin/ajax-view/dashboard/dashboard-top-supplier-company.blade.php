@@ -12,7 +12,7 @@ if (window.topSuppliersChartInstance) {
     window.topSuppliersChartInstance = null;
 }
 
-const customDataLabelsPlugin = {
+var customDataLabelsPlugin = {
     id: 'customDataLabels',
     afterDatasetsDraw: (chart, args, options) => {
         const { ctx } = chart;

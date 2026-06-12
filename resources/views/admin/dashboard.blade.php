@@ -951,12 +951,18 @@
 		
 		// Add month filters to match statistics date range
 		if (search_field.search_from_date) {
-			var fromDate = new Date(search_field.search_from_date.split('-').reverse().join('-'));
-			search_field.search_from_month = ('0' + (fromDate.getMonth() + 1)).slice(-2) + '-' + fromDate.getFullYear();
+			var cleanFromDate = search_field.search_from_date.replace(/\//g, '-');
+			var partsFrom = cleanFromDate.split('-');
+			if (partsFrom.length === 3) {
+				search_field.search_from_month = partsFrom[1] + '-' + partsFrom[2];
+			}
 		}
 		if (search_field.search_to_date) {
-			var toDate = new Date(search_field.search_to_date.split('-').reverse().join('-'));
-			search_field.search_to_month = ('0' + (toDate.getMonth() + 1)).slice(-2) + '-' + toDate.getFullYear();
+			var cleanToDate = search_field.search_to_date.replace(/\//g, '-');
+			var partsTo = cleanToDate.split('-');
+			if (partsTo.length === 3) {
+				search_field.search_to_month = partsTo[1] + '-' + partsTo[2];
+			}
 		}
 		
 		// IMPORTANT: Add isChart flag to get chart view instead of table view
@@ -1161,7 +1167,6 @@
 	    }
 		
     	handleToggle($('#custom-switch-case-buyer-delivery'));
-	    handleToggle($('#custom-switch-case-top-suppliers-company'));
 	    handleToggle($('#custom-switch-case-chart-top-suppliers'));
     	
     });
