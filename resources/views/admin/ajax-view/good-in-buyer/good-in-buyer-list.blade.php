@@ -1,29 +1,28 @@
 	<div class="card card-body card-pagination-items-class">
 		{{ Wild_tiger::readMessage() }}
 		<div class="table-responsive fixed-table-x fixed-table-height">
-			<table class="table table-sm table-bordered table-hover" id="user-table">
+			<table class="table table-sm table-bordered table-hover table-layout-fixed" id="user-table">
 				<thead>
 					<tr>
-						<th style="max-width:100px;min-width:40px;">{{ trans("messages.sr-no") }}</th>
-						<th class="text-left" style="max-width:80px;min-width:80px;">{{ trans("messages.entry-no") }}</th>
-						<th class="text-left" style="max-width:100px;min-width:85px;">{{ trans("messages.buyer-company") }}</th>
-						<th class="text-left" style="max-width:70px;min-width:90px;">{{ trans("messages.buyer-name") }}</th>
-						<th class="text-left" style="max-width:70px;min-width:90px;">{{ trans("messages.user-buyer-name") }}</th>
-						<th class="text-left" style="max-width:80px;min-width:75px;">{{ trans("messages.supplier-name") }}</th>
-						<th class="text-left" style="max-width:77px;min-width:70px;">{{ trans("messages.supplier-location") }}</th>
-						<th class="text-left" style="max-width:80px;min-width:80px;width:80px">{{ trans("messages.supplier-country") }}</th>
-						<th class="text-left" style="max-width:80px;min-width:80px;width:80px">{{ trans("messages.po-number") }}</th>
-						<th class="text-left" style="max-width:100px;min-width:100px;">{{ trans("messages.invoice-number") }}</th>
-						<th class="text-left" style="max-width:90px;min-width:90px;">{{ trans("messages.po-amount-with-vat") }}</th>
-						<th class="text-left" style="max-width:100px;min-width:100px;">{{ trans("messages.collection-delivery") }}</th>
-						<th class="text-left" style="max-width:100px;min-width:100px;">{{ trans("messages.mode-of-transport") }}</th>
-						<th class="text-left" style="max-width:70px;min-width:70px;">{{ trans("messages.brand") }}</th>
-						<th class="text-left" style="max-width:98px;min-width:98px;">{{ trans("messages.order-date") }}</th>
-						<th class="text-left" style="max-width:77px;min-width:70px;">{{ trans("messages.buyer-delivery-date") }}</th>
-						<th class="text-left" style="max-width:77px;min-width:70px;">{{ trans("messages.pallet-box") }}</th>
-						<th class="text-left" style="max-width:77px;min-width:70px;">{{ trans("messages.delivery-location") }}</th>
-						<th class="text-left" style="max-width:100px;min-width:70px;">{{ trans("messages.buyer-comments") }}</th>
-						<th style="max-width:150px;min-width:80px;" class="text-center">{{ trans("messages.actions") }}</th>
+						<th style="width:2%;">{{ trans("messages.sr-no") }}</th>
+						<th class="text-left" style="width:5%;">{{ trans("messages.entry-no") }}</th>
+						<th class="text-left" style="width:6%;">{{ trans("messages.buyer-company") }}</th>
+						<th class="text-left" style="width:6%;">{{ trans("messages.buyer-name") }}</th>
+						<th class="text-left" style="width:5%;">{{ trans("messages.user-buyer-name") }}</th>
+						<th class="text-left" style="width:6%;">{{ trans("messages.supplier-name") }}</th>
+						<th class="text-left" style="width:12%;">{{ trans("messages.supplier-location") }}</th>
+						<th class="text-left" style="width:5.5%;">{{ trans("messages.supplier-country") }}</th>
+						<th class="text-left" style="width:4.5%;">{{ trans("messages.po-number") }}</th>
+						<th class="text-left" style="width:4.5%;">{{ trans("messages.invoice-number") }}</th>
+						<th class="text-left" style="width:5%;">{{ trans("messages.po-amount-with-vat") }}</th>
+						<th class="text-left" style="width:5%;">{{ trans("messages.collection-delivery") }}</th>
+						<th class="text-left" style="width:4.5%;">{{ trans("messages.mode-of-transport") }}</th>
+						<th class="text-left" style="width:3.5%;">{{ trans("messages.brand") }}</th>
+						<th class="text-left" style="width:4%;">{{ trans("messages.order-date") }}</th>
+						<th class="text-left" style="width:4%;">{{ trans("messages.buyer-delivery-date") }}</th>
+						<th class="text-left" style="width:4%;">{{ trans("messages.pallet-box") }}</th>
+						<th class="text-left" style="width:5.5%;">{{ trans("messages.delivery-location") }}</th>
+						<th style="width:8%;" class="text-center">{{ trans("messages.actions") }}</th>
 					</tr>
 				</thead>
 				<tbody class="ajax-view">
@@ -87,7 +86,6 @@
 								<td><?php echo (isset($recordDetail->goodInBuyerMaster->e_pallet_box_type) ? $recordDetail->goodInBuyerMaster->e_pallet_box_type : '' ) . '<br>' . (isset($recordDetail->goodInBuyerMaster->i_no_of_pallet_box) ? $recordDetail->goodInBuyerMaster->i_no_of_pallet_box : '')   ?></td>
 								
 								<td>{{ (isset($recordDetail->goodInBuyerMaster->warehouseMaster->v_warehouse_name) ? $recordDetail->goodInBuyerMaster->warehouseMaster->v_warehouse_name .(isset($recordDetail->goodInBuyerMaster->warehouseMaster->v_warehouse_code) ? ' (' .( $recordDetail->goodInBuyerMaster->warehouseMaster->v_warehouse_code ) .')' :'' ) :'' ) }}</td>
-								<td>{{ (!empty($recordDetail->goodInBuyerMaster->v_buyer_comments) ? $recordDetail->goodInBuyerMaster->v_buyer_comments : '') }}</td>
 								<td style="max-width:150px;min-width:100px;" class="text-center">
 								<?php if( (checkPermission(config('permission_constants.EDIT_GOODS_IN_BUYER')) != false) || (checkPermission(config('permission_constants.DELETE_GOODS_IN_BUYER')) != false) ){?>
 									<?php if(checkPermission(config('permission_constants.EDIT_GOODS_IN_BUYER')) != false){?>
@@ -114,7 +112,7 @@
 					} else {
 						?>
 						<tr>
-							<td colspan="20" class="text-center">{{ trans('messages.no-record-found')}}</td>
+							<td colspan="19" class="text-center">{{ trans('messages.no-record-found')}}</td>
 						</tr>
 						<?php
 					}

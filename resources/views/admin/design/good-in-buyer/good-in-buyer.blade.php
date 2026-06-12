@@ -238,7 +238,7 @@
 
 			<div class="filter-result-wrapper">
 				<div class="card card-body">
-					<div class="table-responsive">
+					<div class="table-responsive fixed-table-x">
 						<table class="table table-sm table-bordered table-hover" id="user-table">
 							<thead>
 								<tr>
